@@ -25,19 +25,20 @@ Q_DECLARE_METATYPE( QSet<Structure::Node*> )
 
 SuperGraph::SuperGraph(GraphCorresponder * useCorresponder)
 {
+    if(!useCorresponder) return;
     /// STEP 1) Use a corresponder, automatic or user assisted
     this->gcoor = useCorresponder;
     this->sg = useCorresponder->sg;
     this->tg = useCorresponder->tg;
 
     /// STEP 2) Generate super graphs
-    generateSuperGraphs();
+    //generateSuperGraphs();
 }
 
 SuperGraph::~SuperGraph()
 {
-    if(super_sg) delete super_sg;
-    if(super_tg) delete super_tg;
+    //if(super_sg) delete super_sg;
+    //if(super_tg) delete super_tg;
 }
 
 bool SuperGraph::isExtraNode( Structure::Node *node )
@@ -175,7 +176,7 @@ void SuperGraph::correspondSuperNodes()
         Structure::Node * snode = super_sg->getNode(sNodes.front());
         Structure::Node * tnode = super_tg->getNode(tNodes.front());
 
-        // 1-to-1
+        // 1-to-1 检查是否有多对一
         if (sN == 1 && tN == 1){
             superNodeCorr[snode->id] = tnode->id;
         }
@@ -945,9 +946,32 @@ void SuperGraph::debugSuperGraphs( QString info )
     toGraphviz(super_tg, info + "_TargetSuper", true, info + " Super Target");
 }
 
+void SuperGraph::saveSkeleton(QString fileName){
+    if(tg->nodes.size() < 1) return;
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return;
+    QFileInfo fileInfo(file.fileName());
+    QDir graphDir( fileInfo.absolutePath() );
+
+    QTextStream out(&file);
+
+    // Save nodes
+    foreach(Node * node, super_sg->nodes)
+    {
+        QString corrID = node->property["correspond"].toString();
+        Structure::Node *n = super_tg->getNode(corrID);
+
+        // Control Points
+        foreach(Vector3d p, n->controlPoints())
+            out << QString("v %1 %2 %3\n").arg(p.x()).arg(p.y()).arg(p.z());
+    }
+
+    file.close();
+}
+
 void SuperGraph::saveMatchedGraph(QString fileName){
-    //super_sg->saveToFile(QString("source.xml"));
-    //super_tg->saveToFile(QString("target.xml"));
+
     if(tg->nodes.size() < 1) return;
 
 
@@ -1047,6 +1071,15 @@ void SuperGraph::saveMatchedGraph(QString fileName){
 
     out << "\n</document>\n";
     file.close();
+}
+
+void SuperGraph::ComputeSeedRegions(){
+    //这块是不是有指针问题……
+    foreach(Structure::Node* node, super_sg->nodes){
+        QString nodeID = node->id;
+        SeedRegion * seedregion = new SeedRegion(super_sg, super_tg, nodeID);
+        seedregion->ComputeSeedRegion();
+    }
 }
 
 

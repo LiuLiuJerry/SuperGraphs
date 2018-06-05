@@ -21,6 +21,7 @@ private:
     DatasetMap getDataset(QString datasetPath);
 
     Ui::MainWindow *ui;
+
 };
 
 #endif // MAINWINDOW_H

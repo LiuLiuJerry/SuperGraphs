@@ -5,6 +5,7 @@
 #include "DynamicGraph.h"
 #include "StructureGraph.h"
 #include "GraphCorresponder.h"
+#include "SeedRegion.h"
 
 
 class SuperGraph
@@ -48,6 +49,10 @@ public:
 
     //我的函数
     void saveMatchedGraph(QString fileName);
+    void saveSkeleton(QString fileName);
+
+    ///Seed Region
+    void ComputeSeedRegions();
 
     // DEBUG:
     public:
@@ -67,6 +72,7 @@ public:
     Structure::Graph * super_tg;
     QMap<QString, QString> superNodeCorr;
     QMap<QString, QString> superEdgeCorr;
+
 
 };
 

@@ -1,8 +1,10 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include "Shapeholder.h"
-#include "Matcher.h"
-#include "Supergraph.h"
+#include "ShapeHolder.h"
+#include "ShapeMatchers.h"
+//#include "Matcher.h"
+//#include "SuperGraph.h"
+//#include "SeedRegion.h"
 #include <QDesktopWidget>
 #include <QDir>
 #include <QFileDialog>
@@ -48,11 +50,9 @@ void MainWindow::Prepare(){
 
     ShapeHolder * holder = new ShapeHolder();
     holder->loadDataset(datasetMap);
-    Matcher * matcher = new Matcher(holder->inputGraphs);
-    matcher->doMatch();
-    SuperGraph * supergraph = new SuperGraph(matcher->gcorr);
-    supergraph->generateSuperGraphs();
-    supergraph->saveMatchedGraph(QString("target.xml"));
+
+    ShapeMatchers* shapeMetchers = new ShapeMatchers(holder);
+    shapeMetchers->MatchShapes();
 
     return;
 }

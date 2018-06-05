@@ -45,16 +45,20 @@ INCLUDEPATH += ../TopoBlenderLib
 
 SOURCES += main.cpp\
         mainwindow.cpp \
-    Shapeholder.cpp \
     Matcher.cpp \
-    Supergraph.cpp \
+    SeedRegion.cpp \
+    ShapeMatchers.cpp \
+    ShapeHolder.cpp \
+    SuperGraph.cpp
 
 HEADERS  += mainwindow.h \
     global.h \
-    Shapeholder.h \
     Matcher.h \
     CustomDrawObjects.h \
-    Supergraph.h \
+    SeedRegion.h \
+    ShapeMatchers.h \
+    ShapeHolder.h \
+    SuperGraph.h
 
 FORMS    += mainwindow.ui
 
