@@ -37,18 +37,11 @@ void SeedRegion::ComputeSeedRegion(){
 
 
     }else if(type == Structure::SHEET){
-        QVector<int> A;
-        A.push_back(1);
-        if(A.isEmpty())return;
 
-        //在sheet中最多只考虑两个边 //用QVector就会有问题，也不知道为啥……
-        /*std::vector<Structure::Link*> active_edges;
-        active_edges = active->getEdges(n->id).toStdVector();
-        if(active_edges.empty())  return;*///这里到底哪里错了……
-        std::vector<Structure::Link*> active_edges;
-        active->getEdges(n->id, active_edges);
+        //在sheet中最多只考虑两个边
+        QVector<Structure::Link*> active_edges = active->getEdges(n->id);
 
-        QVector<Link*> edges = filterEdges(n, QVector<Link*>::fromStdVector(active_edges) );//这里最多是是两个边（什么破函数……）
+        QVector<Link*> edges = filterEdges(n, active_edges );//这里最多是是两个边（什么破函数……）
 
         property["edges"].setValue( active->getEdgeIDs(edges) );
         if(edges.empty()) return;

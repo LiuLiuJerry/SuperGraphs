@@ -22,25 +22,34 @@ void ShapeMatchers::MatchShapes(){
     //vector是一个构造对象，不能直接使用=符号进行复制，必须迭代每个元素来复制
     QVector<Structure::Graph*> &inputGraphs = shapeholder->inputGraphs;
     if(inputGraphs.size() < 2) return;
-    Structure::Graph* target = inputGraphs[0];
-    for(int i = 1; i < inputGraphs.size(); i++){
+
+    SuperGraph * supergraph = NULL;
+    Structure::Graph *t = new Structure::Graph(*inputGraphs[0]);
+    superGraphs.push_back(t);
+
+    int len = inputGraphs.size();
+    for(int i = 1; i < len; i++){
         Structure::Graph* source = inputGraphs[i];
-        //指针指向的东西在里面被更改不行吗……
+        Structure::Graph* target = superGraphs[0];
+        //target是不是应该被标记一下没有被标记？
         Corresponders[i] = doMatch(source, target, Corresponders[i]);
 
-        SuperGraph * supergraph = new SuperGraph(Corresponders[i]);
+        if(supergraph) delete supergraph;
+        supergraph = new SuperGraph(Corresponders[i]);
         supergraph->generateSuperGraphs();
-        supergraph->ComputeSeedRegions();
-        superGraphs[i] = supergraph->super_sg;
-        target = supergraph->super_tg;
 
-        QString objName = "active_" + QString::number(i);
-        supergraph->saveSkeleton(objName);
+        supergraph->ComputeSeedRegions(); //$^&$*)#@
 
-        //delete supergraph;
+        QString objName = "super_sg_" + QString::number(i);
+        supergraph->saveSkeleton(objName, "ACTIVE");
+
+        superGraphs.push_back(supergraph->super_sg);
+        t = superGraphs[0];
+        delete t;
+        superGraphs[0] = supergraph->super_tg;
 
     }
-    superGraphs[0] = target;
+    supergraph->saveSkeleton("super_tg", "TARGET");
 
 }
 

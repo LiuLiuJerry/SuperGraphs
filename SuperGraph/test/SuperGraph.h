@@ -49,7 +49,7 @@ public:
 
     //我的函数
     void saveMatchedGraph(QString fileName);
-    void saveSkeleton(QString fileName);
+    void saveSkeleton(QString fileName, QString type);
 
     ///Seed Region
     void ComputeSeedRegions();

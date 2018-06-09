@@ -37,8 +37,7 @@ SuperGraph::SuperGraph(GraphCorresponder * useCorresponder)
 
 SuperGraph::~SuperGraph()
 {
-    //if(super_sg) delete super_sg;
-    //if(super_tg) delete super_tg;
+
 }
 
 bool SuperGraph::isExtraNode( Structure::Node *node )
@@ -109,6 +108,12 @@ QVector<QString> SuperGraph::cloneGraphNode( Structure::Graph *g, QString nodeID
 
     // remove the original node
     g->removeNode(nodeID);
+    //Jerry's addition
+    int len = g->nodes.size();
+    for(int i = 0; i < len; i++){
+        if(g->nodes[i]->property.contains("index"))
+            g->nodes[i]->property["index"] = i;
+    }
 
     // remove its groups
     foreach(QVector<QString> group, g->groupsOf(nodeID))
@@ -120,7 +125,7 @@ QVector<QString> SuperGraph::cloneGraphNode( Structure::Graph *g, QString nodeID
 void SuperGraph::correspondSuperNodes()
 {
     // Add virtual corresponding nodes for missing nodes
-
+    //没有匹配的点先简要的拷贝到对方那边去
     // To shrink:
     foreach(QString snodeID, gcoor->nonCorresSource())
     {
@@ -611,6 +616,10 @@ void SuperGraph::generateSuperGraphs()
     /// NODES:
     // Correspond nodes in super graphs
     correspondSuperNodes();
+    //test
+    /*QString sourceName = "sg";
+    saveSkeleton(sourceName, "ACTIVE");
+    saveSkeleton("tg", "TARGET");*/
 
     // Equalize resolution for corresponded nodes
     equalizeSuperNodeResolutions();
@@ -687,7 +696,7 @@ void SuperGraph::postprocessSuperEdges()
 
 void SuperGraph::equalizeSuperNodeResolutions()
 {
-    //图内先保持一直
+    //图内先保持一致
     foreach(QVector<QString> group, super_sg->groups){
         int maxNum = -1;
         //每个node用相同数目的控制点进行控制
@@ -946,29 +955,47 @@ void SuperGraph::debugSuperGraphs( QString info )
     toGraphviz(super_tg, info + "_TargetSuper", true, info + " Super Target");
 }
 
-void SuperGraph::saveSkeleton(QString fileName){
-    if(tg->nodes.size() < 1) return;
+void SuperGraph::saveSkeleton(QString fileName, QString type){
 
-    QFile file(fileName);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return;
-    QFileInfo fileInfo(file.fileName());
-    QDir graphDir( fileInfo.absolutePath() );
+    QVector<Node*> nodes;
+    if(type == "ACTIVE"){
+        nodes = super_sg->nodes;
+    }else if(type == "TARGET"){
+        nodes = super_tg->nodes;
+    }
+    if(nodes.size() < 1) return;
 
-    QTextStream out(&file);
+    QString skeletonFolder = "skeletons";
+    QDir skeDir( QDir::currentPath() );
+    skeDir.mkdir( skeletonFolder );
 
     // Save nodes
-    foreach(Node * node, super_sg->nodes)
+    foreach(Node * node, nodes)
     {
-        QString corrID = node->property["correspond"].toString();
-        Structure::Node *n = super_tg->getNode(corrID);
+        QString nodeFolder = skeletonFolder + "/" + fileName;
+        skeDir.mkdir( nodeFolder );
 
+        QString mesh_filename = node->id;
+        QFileInfo skeFileInfo( mesh_filename );
+
+        QString FileName = nodeFolder + "/" + skeFileInfo.baseName() + ".obj";
+
+        QFile file(FileName);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return;
+
+        QTextStream out(&file);
+
+        if(node->id.contains("_null"))
+            out << "#seed regions" << endl;
         // Control Points
-        foreach(Vector3d p, n->controlPoints())
+        foreach(Vector3d p, node->controlPoints())
             out << QString("v %1 %2 %3\n").arg(p.x()).arg(p.y()).arg(p.z());
+
+        file.close();
     }
 
-    file.close();
 }
+
 
 void SuperGraph::saveMatchedGraph(QString fileName){
 
@@ -1074,12 +1101,29 @@ void SuperGraph::saveMatchedGraph(QString fileName){
 }
 
 void SuperGraph::ComputeSeedRegions(){
-    //这块是不是有指针问题……
-    foreach(Structure::Node* node, super_sg->nodes){
-        QString nodeID = node->id;
+    //不应该所有的都计算seedRegion
+    QVector<Node*> snodes = super_sg->nodes;
+    QVector<QString> snodeIDs;
+    for(int i = 0; i < snodes.size(); i++){
+        snodeIDs.push_back(snodes.at(i)->id);
+    }
+    foreach(QString nodeID, snodeIDs){
+        if(!nodeID.contains("_null")) continue;
         SeedRegion * seedregion = new SeedRegion(super_sg, super_tg, nodeID);
         seedregion->ComputeSeedRegion();
     }
+
+    QVector<Node*> tnodes = super_tg->nodes;
+    QVector<QString> tnodeIDs;
+    for(int i = 0; i < tnodes.size(); i++){
+        tnodeIDs.push_back(tnodes.at(i)->id);
+    }
+    foreach(QString nodeID, tnodeIDs){
+        if(!nodeID.contains("_null")) continue;
+        SeedRegion * seedregion = new SeedRegion(super_tg, super_sg, nodeID);
+        seedregion->ComputeSeedRegion();
+    }
+
 }
 
 
