@@ -195,13 +195,13 @@ void GraphDistance::computeDistances( std::vector<Vector3> startingPoints, doubl
 
 	this->used_resolution = resolution;
 
-	CloseMap closestStart;
+    CloseMap closestStart;//使得closestStart的size和startingPoints一样
 	foreach(Vector3 p, startingPoints) 
 		closestStart[closestStart.size()] = std::make_pair(-1,DBL_MAX);
 
 	prepareNodes(resolution, startingPoints, closestStart, g->nodes);
 
-	// Connect between nodes
+    // Connect between nodes //准备一个矩阵用来算所有点到开始点的Dijkstra距离
 	foreach(Link * e, g->edges)
 	{
 		if(excludeNodes.contains(e->n1->id) || excludeNodes.contains(e->n2->id)) continue;

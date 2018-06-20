@@ -26,6 +26,8 @@ public:
 	void initializeMatrix(std::vector< std::vector<Type> > & M, Type value);
 	void normalizeMatrix(MATRIX & M);
 	bool minElementInMatrix(MATRIX &M, int &row, int &column, float &minValue);
+    //Jerry
+    bool minUnusedInMatrix( MATRIX &M, std::vector< std::vector<bool> > &U, int &row, int &column, float &minValue );
 
 	// Point Landmarks
     QVector< POINT_LANDMARK > pointLandmarks; //好像就是control point吧……
@@ -60,6 +62,7 @@ public:
 	void computeSizeDiffMatrix(MATRIX & M);
 	void computeOrientationDiffMatrix(MATRIX & M);
 	void prepareAllMatrices();
+
 
 	// Final distance matrix by combining all matrices
 	MATRIX disM;
@@ -98,6 +101,11 @@ public:
 
 	QSet<int> nonCorresS;
 	QSet<int> nonCorresT;
+
+    //Jerry
+    void computeCorrespondencesNew();
+    void computePartToPartCorrNew();
+
 
 public slots:
 	void visualizePart2PartDistance(int sourceID);

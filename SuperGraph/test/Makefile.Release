@@ -1614,6 +1614,13 @@ release\mainwindow.obj: mainwindow.cpp mainwindow.h \
 		C:\Qt\Qt5.8.0\5.8\msvc2015_64\include\QtWidgets\QGraphicsScene \
 		C:\Qt\Qt5.8.0\5.8\msvc2015_64\include\QtWidgets\QMainWindow \
 		ui_mainwindow.h \
+		C:\Qt\Qt5.8.0\5.8\msvc2015_64\include\QtWidgets\QAction \
+		C:\Qt\Qt5.8.0\5.8\msvc2015_64\include\QtWidgets\QApplication \
+		C:\Qt\Qt5.8.0\5.8\msvc2015_64\include\QtWidgets\QButtonGroup \
+		C:\Qt\Qt5.8.0\5.8\msvc2015_64\include\QtWidgets\QHeaderView \
+		C:\Qt\Qt5.8.0\5.8\msvc2015_64\include\QtWidgets\QMenuBar \
+		C:\Qt\Qt5.8.0\5.8\msvc2015_64\include\QtWidgets\QStatusBar \
+		C:\Qt\Qt5.8.0\5.8\msvc2015_64\include\QtWidgets\QToolBar \
 		ShapeHolder.h \
 		..\TopoBlenderLib\StructureGraph.h \
 		..\..\..\starlab\core\external\eigen-3.2.5\Eigen\Core \

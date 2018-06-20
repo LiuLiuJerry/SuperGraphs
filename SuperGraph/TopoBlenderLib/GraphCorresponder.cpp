@@ -97,7 +97,7 @@ bool GraphCorresponder::minElementInMatrix( MATRIX &M, int &row, int &column, fl
 	for (int i = 0; i < (int)M.size(); i++){
 		for (int j = 0; j < (int)M[0].size(); j++)
 		{
-			if (M[i][j] != INVALID_VALUE && M[i][j] < minValue)
+            if (M[i][j] != INVALID_VALUE && M[i][j] < minValue)
 			{
 				minValue = M[i][j];
 				row = i;
@@ -107,6 +107,30 @@ bool GraphCorresponder::minElementInMatrix( MATRIX &M, int &row, int &column, fl
 	}
 
 	return minValue != FLT_MAX;
+}
+
+bool GraphCorresponder::minUnusedInMatrix( MATRIX &M, std::vector< std::vector<bool> > &U, int &row, int &column, float &minValue )
+{
+    if (M.size() == 0 || M[0].size() == 0)
+    {
+        qDebug()  << "Warning: minElementInMatrix: the input matrix cannot be empty.";
+        return false;
+    }
+
+    minValue = FLT_MAX;
+    for (int i = 0; i < (int)M.size(); i++){
+        for (int j = 0; j < (int)M[0].size(); j++)
+        {
+            if (M[i][j] != INVALID_VALUE && U[i][j] != true && M[i][j] < minValue)
+            {
+                minValue = M[i][j];
+                row = i;
+                column = j;
+            }
+        }
+    }
+
+    return minValue != FLT_MAX;
 }
 
 // Point Landmarks
@@ -134,6 +158,7 @@ void GraphCorresponder::prepareOneToOnePointLandmarks()
 	sPointLandmarks.clear();
 	tPointLandmarks.clear();
 
+    //vector对vector变成点对点
 	// Prepare
 	foreach (POINT_LANDMARK pLandmark, pointLandmarks)
 	{
@@ -168,7 +193,8 @@ void GraphCorresponder::prepareOneToOnePointLandmarks()
 QVector< QVector<double> > GraphCorresponder::computeLandmarkFeatures( Structure::Graph *g, QVector<POINT_ID> &pointLandmarks )
 {
 	QVector< QVector<double> > result_features(g->nodes.size(), QVector<double>());
-    //pointLandMark意思是某个编号对应的node对应的控制点
+    //pointLandMark意思是某个编号对应的node对应的边界点
+    //POINT_ID 第一个是nodeID， 第二个是这个node中的控制点的序号
 	foreach (POINT_ID landmark, pointLandmarks)
 	{
 		Vector3 startpoint = g->nodes[landmark.first]->controlPoint(landmark.second);
@@ -177,7 +203,7 @@ QVector< QVector<double> > GraphCorresponder::computeLandmarkFeatures( Structure
 		gd.computeDistances(startpoint, DIST_RESOLUTION);
 
 		for (int nID = 0; nID < (int)g->nodes.size(); nID++)
-        {   //每个结点的中心到节点的某一个控制点【startpoint】之间的距离
+        {   //每个node的中心到沿着control point 到某一个控制点【startpoint】之间的距离
 			double dis = gd.distance(g->nodes[nID]->center());
 
 			result_features[nID].push_back(dis);
@@ -1028,48 +1054,6 @@ void GraphCorresponder::correspondTwoSheets( Structure::Sheet *sSheet, Structure
 }
 
 
-// Main access
-void GraphCorresponder::computeCorrespondences()
-{
-	corrScores.clear();
-
-	// Prepare
-	prepareAllMatrices();
-
-	// Distance matrix
-	computeFinalDistanceMatrix();
-
-	// Part to Part correspondence
-	computePartToPartCorrespondences();
-
-	// Point to Point correspondence
-	correspondAllNodes();
-
-	// Reset correspondence states
-	sIsCorresponded.clear();
-	tIsCorresponded.clear();
-    sIsCorresponded.resize(sg->nodes.size(), false);
-    tIsCorresponded.resize(tg->nodes.size(), false);
-
-	if(correspondences.empty()) doHopelessCorrespondence();
-
-	// Mark the corresponded nodes
-	foreach (PART_LANDMARK vector2vector, correspondences)
-	{
-		foreach (QString sID, vector2vector.first)
-		{
-			int sid = sg->getNode(sID)->property["index"].toInt();
-			sIsCorresponded[sid] = true;
-		}
-
-		foreach (QString tID, vector2vector.second)
-		{
-			int tid = tg->getNode(tID)->property["index"].toInt();
-            tIsCorresponded[tid] = true;
-		}
-	}
-}
-
 void GraphCorresponder::doHopelessCorrespondence()
 {
 	double maxVolS = -1, maxVolT = -1;
@@ -1311,4 +1295,239 @@ void GraphCorresponder::visualizePart2PartDistance( int sourceID )
 		tNode->vis_property["color"] = qtJetColorMap(value);
 		tNode->vis_property["showControl"] = false;
 	}
+}
+
+
+
+// Main access
+void GraphCorresponder::computeCorrespondences()
+{
+    corrScores.clear();
+
+    // Prepare
+    prepareAllMatrices();
+
+    // Distance matrix
+    computeFinalDistanceMatrix();
+
+    // Part to Part correspondence
+    computePartToPartCorrespondences();
+
+    // Point to Point correspondence
+    correspondAllNodes();
+
+    // Reset correspondence states
+    sIsCorresponded.clear();
+    tIsCorresponded.clear();
+    sIsCorresponded.resize(sg->nodes.size(), false);
+    tIsCorresponded.resize(tg->nodes.size(), false);
+
+    if(correspondences.empty()) doHopelessCorrespondence();
+
+    // Mark the corresponded nodes
+    foreach (PART_LANDMARK vector2vector, correspondences)
+    {
+        foreach (QString sID, vector2vector.first)
+        {
+            int sid = sg->getNode(sID)->property["index"].toInt();
+            sIsCorresponded[sid] = true;
+        }
+
+        foreach (QString tID, vector2vector.second)
+        {
+            int tid = tg->getNode(tID)->property["index"].toInt();
+            tIsCorresponded[tid] = true;
+        }
+    }
+}
+
+//自己随便改一改匹配算法……
+void GraphCorresponder::computeCorrespondencesNew(){
+    corrScores.clear();
+
+    // Prepare
+    prepareAllMatrices();
+
+    // Distance matrix //直接计算control points之间的距离，所以要求模型全部归一化
+    computeFinalDistanceMatrix();
+
+    // Part to Part correspondence
+    computePartToPartCorrNew();
+
+    // Point to Point correspondence
+    correspondAllNodes();
+
+    // Reset correspondence states
+    sIsCorresponded.clear();
+    tIsCorresponded.clear();
+    sIsCorresponded.resize(sg->nodes.size(), false);
+    tIsCorresponded.resize(tg->nodes.size(), false);
+
+    if(correspondences.empty()) doHopelessCorrespondence();
+
+    // Mark the corresponded nodes
+    foreach (PART_LANDMARK vector2vector, correspondences)
+    {
+        foreach (QString sID, vector2vector.first)
+        {
+            int sid = sg->getNode(sID)->property["index"].toInt();
+            sIsCorresponded[sid] = true;
+        }
+
+        foreach (QString tID, vector2vector.second)
+        {
+            int tid = tg->getNode(tID)->property["index"].toInt();
+            tIsCorresponded[tid] = true;
+        }
+    }
+}
+
+void GraphCorresponder::computePartToPartCorrNew(){
+    // Clear
+    correspondences.clear();
+    corrScores.clear();
+
+    // The final disM
+    std::vector< std::vector<float> > disMatrix = disM;
+
+    // Parameters
+    int sN = sg->nodes.size();
+    int tN = tg->nodes.size();
+    float tolerance = 0.04f;
+
+    // Force un-corresponded  已经确定不会被匹配的node
+    foreach(int ri, nonCorresS)
+        for (int ci = 0; ci < tN; ci++)
+            disMatrix[ri][ci] = INVALID_VALUE;
+
+    for (int ri = 0; ri < sN; ri++)
+        foreach(int ci, nonCorresT)
+            disMatrix[ri][ci] = INVALID_VALUE;
+
+    int r, c;
+    float minValue;
+    while (minElementInMatrix(disMatrix, r, c, minValue)) //每次把距离最小的两个Node匹配起来
+    {
+        if (minValue > scoreThreshold) break;
+
+        // source:r <-> target:c
+        float upperBound = disMatrix[r][c] + tolerance;
+
+        // Search for "many" in source
+        std::vector<int> r_many;
+        std::vector<float> r_scores;
+        for (int ri = 0; ri < sN; ri++)
+        {
+            if (ri == r || disMatrix[ri][c] == INVALID_VALUE)
+                continue;
+
+            // ri is close to c 如果有多个的距离有小于一个阈值，就把它们都放到r_many
+            if (disMatrix[ri][c] <= upperBound)
+            {
+                r_scores.push_back(disMatrix[ri][c]);
+                r_many.push_back(ri);
+            }
+        }
+
+        // Search for "many" in target
+        std::vector<int> c_many;
+        std::vector<float> c_scores;
+        for (int ci = 0; ci < tN; ci++)
+        {
+            if (ci == c || disMatrix[r][ci] == INVALID_VALUE)
+                continue;
+
+            // ci is close to r
+            if (disMatrix[r][ci] < upperBound)
+            {
+                c_scores.push_back(disMatrix[r][ci]);
+                c_many.push_back(ci);
+            }
+        }
+
+        // Results
+        QVector<QString> sVector, tVector;
+        sVector.push_back(sg->nodes[r]->id);
+        tVector.push_back(tg->nodes[c]->id);
+        std::vector<float> scores;
+        scores.push_back(minValue);
+
+        //尽量保持一对一，然后才是一对多和多对一
+        if(c_many.size() > 1 && r_many.size() > 1){
+            for(int i = 1; i < r_many.size(); i++){
+                for(int j = 1; j < c_many.size(); j++){
+                    int ri = r_many[i], cj = c_many[j];
+                    if(ri > -1 && cj > -1 && disMatrix[ri][cj] < upperBound){
+                        r_many[i] = -1;
+                        c_many[j] = -1;
+                        break;
+                    }
+                }
+            }
+        }
+        std::vector<int>r_tmp, c_tmp;
+        std::vector<float> rscore_tmp, cscore_tmp;
+        for(int i = 0; i < r_many.size(); i++){
+            int r = r_many[i];
+            if(r > -1)r_tmp.push_back(r);
+            rscore_tmp.push_back(r_scores[i]);
+        }
+        for(int i; i < c_many.size(); i++){
+            int c = c_many[i];
+            if(c > -1)c_tmp.push_back(c);
+            cscore_tmp.push_back(c_scores[i]);
+        }
+        r_many.swap(r_tmp);
+        c_many.swap(c_tmp);
+        r_scores.swap(rscore_tmp);
+        c_scores.swap(cscore_tmp);
+
+        //确定到底是一对多还是多对一
+        if (c_many.size() > r_many.size()) // r <-> {c_i}
+        {
+            foreach(int ci, c_many)
+            {
+                tVector.push_back(tg->nodes[ci]->id);
+
+                for (int i = 0; i < sN; i++) // Column c
+                    disMatrix[i][ci] = INVALID_VALUE;
+            }
+
+            scores.insert(scores.end(), c_scores.begin(), c_scores.end());
+        }
+        else // {r_i} <-> c
+        {
+            foreach(int ri, r_many)
+            {
+                sVector.push_back(sg->nodes[ri]->id);
+
+                for (int j = 0; j < tN; j++) // Row r
+                    disMatrix[ri][j] = INVALID_VALUE;
+            }
+
+            scores.insert(scores.end(), r_scores.begin(), r_scores.end());
+        }
+
+        // Save results
+        PART_LANDMARK vector2vector = std::make_pair(sVector, tVector);
+        this->insertCorrespondence( vector2vector );
+        this->corrScores[vector2vector] = scores;
+
+        // Remove r and c in the disMatrix
+        // 匹配过的Node不再考虑
+        for (int i = 0; i < sN; i++) // Column c
+            disMatrix[i][c] = INVALID_VALUE;
+        for (int j = 0; j < tN; j++) // Row r
+            disMatrix[r][j] = INVALID_VALUE;
+    }
+
+    // Add the part landmarks as correspondences too
+    foreach(PART_LANDMARK landmark, landmarks)
+    {
+        insertCorrespondence( landmark );
+        int n = qMax(landmark.first.size(),landmark.second.size());
+        std::vector<float> fake_score(n, -1);
+        corrScores[landmark] = fake_score;
+    }
+
 }

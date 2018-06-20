@@ -23,7 +23,7 @@ Q_DECLARE_METATYPE( QSet<Structure::Node*> )
 
 
 
-SuperGraph::SuperGraph(GraphCorresponder * useCorresponder)
+SuperGraph::SuperGraph(GraphCorresponder * useCorresponder, int i)
 {
     if(!useCorresponder) return;
     /// STEP 1) Use a corresponder, automatic or user assisted
@@ -33,6 +33,8 @@ SuperGraph::SuperGraph(GraphCorresponder * useCorresponder)
 
     /// STEP 2) Generate super graphs
     //generateSuperGraphs();
+
+    Nth = i;
 }
 
 SuperGraph::~SuperGraph()
@@ -55,7 +57,7 @@ QVector<QString> SuperGraph::cloneGraphNode( Structure::Graph *g, QString nodeID
     for (int i = 0; i < N; i++)
     {
         Structure::Node * n = node->clone();
-        n->id = nodeID + "_" + QString::number(i);
+        n->id = nodeID + "_" + QString::number(i) + "_split_"+QString::number(Nth);
 
         g->addNode(n);
 
@@ -74,8 +76,9 @@ QVector<QString> SuperGraph::cloneGraphNode( Structure::Graph *g, QString nodeID
             Structure::Node * other = link->otherNode(nodeID);
             QString otherID = other->id;
 
-            if (isExtraNode(other))
+            if (false/*isExtraNode(other)*/)
             {
+                //如果边的另一头是额外的没有被匹配的点，就从split里的node随便挑一个和这个null连接上
                 if (currCloned >= N)
                 {
                     continue;
@@ -92,6 +95,7 @@ QVector<QString> SuperGraph::cloneGraphNode( Structure::Graph *g, QString nodeID
             }
             else
             {
+                //直接把本体的边全都复制过来
                 // Link other to all cloned nodes
                 foreach (Structure::Node* cnode, cloned_nodes)
                 {
@@ -125,13 +129,13 @@ QVector<QString> SuperGraph::cloneGraphNode( Structure::Graph *g, QString nodeID
 void SuperGraph::correspondSuperNodes()
 {
     // Add virtual corresponding nodes for missing nodes
-    //没有匹配的点先简要的拷贝到对方那边去
-    // To shrink:
+    // 没有匹配的点先简要的拷贝到对方那边去，从source拷贝到target
+    // To grow:
     foreach(QString snodeID, gcoor->nonCorresSource())
     {
         Structure::Node *snode = super_sg->getNode(snodeID);
         Structure::Node *ctnode = snode->clone();
-        ctnode->id = snodeID + "_null";
+        ctnode->id = snodeID + "_null" + "_grow_" + QString::number(Nth);
 
         assert(!super_tg->getNode(ctnode->id));
         super_tg->addNode(ctnode);
@@ -139,29 +143,17 @@ void SuperGraph::correspondSuperNodes()
         superNodeCorr[snodeID] = ctnode->id;
     }
 
-    // To grow:
-    foreach(QString tnodeID, gcoor->nonCorresTarget())
-    {
-        Structure::Node *tnode = super_tg->getNode(tnodeID);
-        Structure::Node *csnode = tnode->clone();
-        csnode->id = tnodeID + "_null";
-
-        assert(!super_sg->getNode(csnode->id));
-        super_sg->addNode(csnode);
-
-        superNodeCorr[csnode->id] = tnodeID;
-    }
 
     // Copy growing groups from target
-    QStringList nonCorresTarget;
-    foreach(QString tnodeID, gcoor->nonCorresTarget()) nonCorresTarget << tnodeID;
+    QStringList nonCorresSource;
+    foreach(QString tnodeID, gcoor->nonCorresSource()) nonCorresSource << tnodeID;
     foreach(QVector<QString> tgroup, super_tg->groups)
     {
         // Add this groups
         QVector<QString> sgroup;
         //超图中的每一个组中的每一个节点，如果被没有匹配的List包含的话，就放到sgroup中去
         foreach(QString tnodeID, tgroup) {
-            if(nonCorresTarget.contains(tnodeID))
+            if(nonCorresSource.contains(tnodeID))
                 sgroup << (tnodeID + "_null");
         }
 
@@ -258,6 +250,7 @@ void SuperGraph::correspondSuperEdges()
     /// Correspond trivial edges, i.e. both nodes exist on both graphs
     if( CASE_1 )
     {
+        //这块匹配的不对，可能是之前有问题，也可能是匹配算法有问题
         correspondTrivialEdges ( super_sg, super_tg );
         correspondTrivialEdges ( super_tg, super_sg );
     }
@@ -273,11 +266,12 @@ void SuperGraph::correspondSuperEdges()
 
     if(dbg) debugSuperGraphs("02");
 
-    /// Creating one edge for floating null nodes [has heuristic]
+    /// Creating one edge for floating null nodes [has heuristic 启发式的]
+    // 给null连接一条和target对应的价最高的边
     if (CASE_3)
     {
         connectNullNodes( super_sg, super_tg );
-        connectNullNodes( super_tg, super_sg );
+        //connectNullNodes( super_tg, super_sg );
     }
 
     if(dbg) debugSuperGraphs("03");
@@ -291,6 +285,7 @@ void SuperGraph::correspondSuperEdges()
     if(dbg) debugSuperGraphs("04");
 
     /// Do remaining edges of null nodes
+    // 把null的所有的边都连上
     if( CASE_5 )
     {
         correspondRemainingOfNull( super_sg, super_tg );
@@ -311,6 +306,7 @@ void SuperGraph::correspondSuperEdges()
     /// Remove excess edges (edges of core nodes still uncorresponded)
     if( CASE_7 )
     {
+        //怀疑在第二步计算seed region的时候这里移走了过多的边
         removeRedundantEdges( super_sg );
         removeRedundantEdges( super_tg );
     }
@@ -327,6 +323,172 @@ void SuperGraph::correspondSuperEdges()
     }
 }
 
+void SuperGraph::correspondEdgesfromTarget()
+{
+    bool CASE_1 = true;
+    bool CASE_2 = true;
+    bool CASE_3 = true;
+    bool CASE_4 = true;
+    bool CASE_5 = true;
+    bool CASE_6 = true;
+    bool CASE_7 = true;
+
+    bool dbg = false;
+
+    if(dbg) debugSuperGraphs("00");
+
+    /// Correspond trivial edges, i.e. both nodes exist on both graphs
+    if( CASE_1 )
+    {
+        //这块匹配的不对，可能是之前有问题，也可能是匹配算法有问题
+        correspondTrivialEdges ( super_sg, super_tg );
+    }
+
+    if(dbg) debugSuperGraphs("01");
+
+    /// Correspond edges between two [extra] or two [missing] nodes
+    if( CASE_2 )
+    {
+        correspondSimilarType( super_sg, super_tg );
+    }
+
+    if(dbg) debugSuperGraphs("02");
+
+    /// Creating one edge for floating null nodes [has heuristic 启发式的]
+    // 给null连接一条和target对应的价最高的边
+    if (CASE_3)
+    {
+        connectNullNodes( super_sg, super_tg );
+    }
+
+    if(dbg) debugSuperGraphs("03");
+
+    /// Correspond edges with changed ends
+    if( CASE_4 )
+    {
+        correspondChangedEnds( super_sg, super_tg );
+    }
+
+    if(dbg) debugSuperGraphs("04");
+
+    /// Do remaining edges of null nodes
+    // 把null的所有的边都连上
+    if( CASE_5 )
+    {
+        correspondRemainingOfNull( super_sg, super_tg );
+    }
+
+    if(dbg) debugSuperGraphs("05");
+
+    /// Link flying real nodes [same as case 4 but for cores]
+    if (CASE_6)
+    {
+        connectFloatingRealNodes(super_sg, super_tg);
+    }
+
+    if(dbg) debugSuperGraphs("06");
+
+    /// Remove excess edges (edges of core nodes still uncorresponded)
+    if( CASE_7 )
+    {
+        //怀疑在第二步计算seed region的时候这里移走了过多的边
+        removeRedundantEdges( super_sg );
+    }
+
+    if(dbg) debugSuperGraphs("07");
+
+    // Visualization: assign global unique ids
+    int viz_uid = 0;
+    foreach(Structure::Link * slink, super_sg->edges){
+        if(!slink->property.contains("correspond")) continue;
+        Link* tlink = super_tg->getEdge(slink->property["correspond"].toInt());
+        if(!tlink) continue;
+        slink->property["viz_uid"] = tlink->property["viz_uid"] = viz_uid++;
+    }
+}
+
+void SuperGraph::correspondEdgesfromSource()
+{
+    bool CASE_1 = true;
+    bool CASE_2 = true;
+    bool CASE_3 = true;
+    bool CASE_4 = true;
+    bool CASE_5 = true;
+    bool CASE_6 = true;
+    bool CASE_7 = true;
+
+    bool dbg = false;
+
+    if(dbg) debugSuperGraphs("00");
+
+    /// Correspond trivial edges, i.e. both nodes exist on both graphs
+    if( CASE_1 )
+    {
+        correspondTrivialEdges ( super_tg, super_sg );
+    }
+
+    if(dbg) debugSuperGraphs("01");
+
+    /// Correspond edges between two [extra] or two [missing] nodes
+    if( CASE_2 )
+    {
+        correspondSimilarType( super_tg, super_sg );
+    }
+
+    if(dbg) debugSuperGraphs("02");
+
+    /// Creating one edge for floating null nodes [has heuristic 启发式的]
+    // 给null连接一条和target对应的价最高的边
+    if (CASE_3)
+    {
+        connectNullNodes( super_tg, super_sg );
+    }
+
+    if(dbg) debugSuperGraphs("03");
+
+    /// Correspond edges with changed ends
+    if( CASE_4 )
+    {
+        correspondChangedEnds( super_sg, super_tg );
+    }
+
+    if(dbg) debugSuperGraphs("04");
+
+    /// Do remaining edges of null nodes
+    // 把null的所有的边都连上
+    if( CASE_5 )
+    {
+        correspondRemainingOfNull( super_tg, super_sg );
+    }
+
+    if(dbg) debugSuperGraphs("05");
+
+    /// Link flying real nodes [same as case 4 but for cores]
+    if (CASE_6)
+    {
+        connectFloatingRealNodes(super_tg, super_sg);
+    }
+
+    if(dbg) debugSuperGraphs("06");
+
+    /// Remove excess edges (edges of core nodes still uncorresponded)
+    if( CASE_7 )
+    {
+        removeRedundantEdges( super_tg );
+    }
+
+    if(dbg) debugSuperGraphs("07");
+
+    // Visualization: assign global unique ids
+    int viz_uid = 0;
+    foreach(Structure::Link * slink, super_sg->edges){
+        if(!slink->property.contains("correspond")) continue;
+        Link* tlink = super_tg->getEdge(slink->property["correspond"].toInt());
+        if(!tlink) continue;
+        slink->property["viz_uid"] = tlink->property["viz_uid"] = viz_uid++;
+    }
+}
+//保证source中每一个边都有匹配
 void SuperGraph::correspondTrivialEdges( Structure::Graph * source, Structure::Graph * target )
 {
     foreach(Structure::Link * slink, source->edges)
@@ -334,6 +496,8 @@ void SuperGraph::correspondTrivialEdges( Structure::Graph * source, Structure::G
         Structure::Node *sn1 = slink->n1, *sn2 = slink->n2;
         Structure::Node *tn1 = target->getNode( sn1->property["correspond"].toString() ),
             *tn2 = target->getNode( sn2->property["correspond"].toString() );
+
+        if(tn1 == NULL || tn2 == NULL)continue;
 
         Structure::Link * tlink = target->getEdge(tn1->id, tn2->id);
 
@@ -371,6 +535,7 @@ void SuperGraph::connectNullNodes( Structure::Graph * source, Structure::Graph *
     foreach(Structure::Node * n, source->nodes){
         if (!n->id.contains("_null")) continue;
         //新加入的空节点，按照价排序 the degree (or valency) of a vertex of a graph is the number of edges incident to the vertex
+        //有意义吗，刚放进来的null的价不都是0吗……
         nodeV[n] = source->valence(n);
     }
 
@@ -389,11 +554,13 @@ void SuperGraph::connectNullNodes( Structure::Graph * source, Structure::Graph *
         // Make sure our connected sub-graph is in fact disconnected
         bool isConnectedViaOthers = false;
         // 如果没有相邻的节点或者所有和snode相连的node中，如果全都是新加进来的null node，说明没有其他节点与它相连（怎么会有其他null和他相连呢……）
+        // 只需找到任意一个就可以说明有到达这个node的通路，则不需要重新加入边进行链接
         foreach(QString nid, source->nodesCanVisit(snode))	if(!nid.contains("_null")) { isConnectedViaOthers = true; break; }
         if( isConnectedViaOthers ) continue;
 
+        //在source中加入缺少的边
         if (tedges.size() == 1)
-        {   //在source中加入缺少的边
+        {
             Link* tlink = tedges.front();
             Link* slink = addMissingLink(source, tlink);
             correspondTwoEdges(slink, tlink, false, source);
@@ -408,19 +575,22 @@ void SuperGraph::connectNullNodes( Structure::Graph * source, Structure::Graph *
         }
         else
         {
+            // 只用价最大的那个节点那null节点连接
             // Collect names, in source, of target's neighboring nodes
             QStringList nodesKeep;
             foreach(Link * tlink, tedges){
                 Node* tOther = tlink->otherNode(tnode->id);
                 Node* sOther = source->getNode(tOther->property["correspond"].toString());
-                nodesKeep << sOther->id; //对应的应该被链接的节点
+                nodesKeep << sOther->id; //source上对应的应该被null链接的节点
             }
 
             // Keep only subgraph with names from above
+            //留下source中nodesKeep之间的链接结构
             Structure::Graph copy(*source);
             foreach(Node*n, source->nodes) if(!nodesKeep.contains(n->id)) copy.removeNode(n->id);
 
             // Find node with most valence, otherwise pick first
+            // nodesKeep里面的价最高的
             int bestValence = 0;
             QString bestID = copy.nodes.front()->id;
             foreach(Node * n, copy.nodes){
@@ -545,7 +715,9 @@ void SuperGraph::correspondRemainingOfNull( Structure::Graph * source, Structure
         if (!snode->id.contains("_null")) continue;
         Structure::Node * tnode = target->getNode( snode->property["correspond"].toString() );
 
-        // Get un-corresponded of target //把null-node的对应node的边都拷贝过来
+        // Get un-corresponded of target
+        // 把null-node的对应node的边里面 没有被匹配的 都拷贝过来
+        // 刚连接过来的node怎么可能有correspond……除了之前连接的那个价最大的边被匹配了
         QVector<Structure::Link*> tedges = edgesNotContain( target->getEdges(tnode->id), "correspond" );
         if(tedges.isEmpty()) continue;
 
@@ -591,6 +763,7 @@ void SuperGraph::connectFloatingRealNodes( Structure::Graph * source, Structure:
 
 void SuperGraph::removeRedundantEdges( Structure::Graph * source )
 {
+    //把所有没有被匹配的边给删除 看来之前的匹配有问题。有大量的边没有被匹配到
     foreach(Structure::Node * snode, source->nodes)
     {
         if (snode->id.contains("_null")) continue;
@@ -616,10 +789,6 @@ void SuperGraph::generateSuperGraphs()
     /// NODES:
     // Correspond nodes in super graphs
     correspondSuperNodes();
-    //test
-    /*QString sourceName = "sg";
-    saveSkeleton(sourceName, "ACTIVE");
-    saveSkeleton("tg", "TARGET");*/
 
     // Equalize resolution for corresponded nodes
     equalizeSuperNodeResolutions();
@@ -627,17 +796,73 @@ void SuperGraph::generateSuperGraphs()
     // Equalize type for corresponded nodes
     equalizeSuperNodeTypes();
 
-    // Visualization - color similar items
-    /*foreach(Structure::Node * n, super_sg->nodes)
-    {
-        QString corrId = n->property["correspond"].toString();
-        Structure::Node * other = super_tg->getNode(corrId);
-        if(other) n->vis_property["color"].setValue( other->vis_property["color"] );
-    }*/
-
     /// EDGES:
     // Correspond edges in super graphs
+    //这里才开始做边的匹配
     correspondSuperEdges();
+
+    // Assign edge attributes
+    postprocessSuperEdges();
+
+    active = super_sg;
+}
+
+void SuperGraph::genSuperGraphsfromSource(){
+    // Two super graphs have one-to-one correspondence between nodes and edges
+    // Two corresponded edge don't have to link two corresponded nodes
+    super_sg = new Structure::Graph(*sg);
+    super_tg = new Structure::Graph(*tg);
+
+    super_sg->property["sourceName"] = gcoor->sgName();
+    super_sg->property["targetName"] = gcoor->tgName();
+
+    super_sg->property["sourceGraphCenter"].setValue( Vector3(sg->bbox().center()) );
+    super_sg->property["targetGraphCenter"].setValue( Vector3(tg->bbox().center()) );
+
+    /// NODES:
+    // Correspond nodes in super graphs
+    correspondSuperNodes();
+
+    // Equalize resolution for corresponded nodes
+    equalizeSuperNodeResolutions();
+
+    // Equalize type for corresponded nodes
+    equalizeSuperNodeTypes();
+
+    //这里才开始做边的匹配
+    correspondEdgesfromSource();
+
+    // Assign edge attributes
+    postprocessSuperEdges();
+
+    active = super_sg;
+}
+
+
+void SuperGraph::genSuperGraphsfromTarget(){
+    // Two super graphs have one-to-one correspondence between nodes and edges
+    // Two corresponded edge don't have to link two corresponded nodes
+    super_sg = new Structure::Graph(*sg);
+    super_tg = new Structure::Graph(*tg);
+
+    super_sg->property["sourceName"] = gcoor->sgName();
+    super_sg->property["targetName"] = gcoor->tgName();
+
+    super_sg->property["sourceGraphCenter"].setValue( Vector3(sg->bbox().center()) );
+    super_sg->property["targetGraphCenter"].setValue( Vector3(tg->bbox().center()) );
+
+    /// NODES:
+    // Correspond nodes in super graphs
+    correspondSuperNodes();
+
+    // Equalize resolution for corresponded nodes
+    equalizeSuperNodeResolutions();
+
+    // Equalize type for corresponded nodes
+    equalizeSuperNodeTypes();
+
+    //这里才开始做边的匹配
+    correspondEdgesfromTarget();
 
     // Assign edge attributes
     postprocessSuperEdges();
@@ -657,7 +882,7 @@ void SuperGraph::postprocessSuperEdges()
     // >> One real: use the corresponded real delta
     // >> More real: put null at the centoid of relative joint to all real neighbours
     //               and the delta is computed thus from there
-    foreach (Node* n, super_sg->nodes){
+    /*foreach (Node* n, super_sg->nodes){
         if (n->id.contains("_null")){
             foreach(Link* sl, super_sg->getEdges( n->id )) {
                 //Link* tl = super_tg->getEdge(sl->property["correspond"].toInt());
@@ -672,7 +897,7 @@ void SuperGraph::postprocessSuperEdges()
                 tl->property["delta"].setValue( sl->delta() );
             }
         }
-    }
+    }*/
 
     // Set blended delta for first time relinking
     foreach(Link * l, super_sg->edges) l->property["blendedDelta"].setValue( l->property["delta"].value<Vector3d>() );
@@ -696,8 +921,8 @@ void SuperGraph::postprocessSuperEdges()
 
 void SuperGraph::equalizeSuperNodeResolutions()
 {
-    //图内先保持一致
-    foreach(QVector<QString> group, super_sg->groups){
+    //图内同一组先保持一致
+    /*foreach(QVector<QString> group, super_sg->groups){
         int maxNum = -1;
         //每个node用相同数目的控制点进行控制
         foreach(QString nid, group) maxNum = qMax(maxNum, super_sg->getNode(nid)->numCtrlPnts());
@@ -708,7 +933,7 @@ void SuperGraph::equalizeSuperNodeResolutions()
         int maxNum = -1;
         foreach(QString nid, group) maxNum = qMax(maxNum, super_tg->getNode(nid)->numCtrlPnts());
         foreach(QString nid, group) super_tg->getNode(nid)->refineControlPoints(maxNum, maxNum);
-    }
+    }*/
     //图与图之间也要有相同的分辨率
     foreach(QString snodeID, superNodeCorr.keys())
     {
@@ -930,7 +1155,7 @@ QVector<Structure::Link*> SuperGraph::edgesContain( QVector<Structure::Link*> ed
             result.push_back(edge);
     return result;
 }
-
+//只要edge没有correspondence就放进来，不考虑the other node有没有对应的corr[property_name]
 QVector<Structure::Link*> SuperGraph::edgesNotContain( QVector<Structure::Link*> edges, QString property_name )
 {
     QVector<Structure::Link*> result;
@@ -969,6 +1194,20 @@ void SuperGraph::saveSkeleton(QString fileName, QString type){
     QDir skeDir( QDir::currentPath() );
     skeDir.mkdir( skeletonFolder );
 
+    QString completeObj = skeletonFolder + "/" + fileName + ".obj";
+    QFile prefile(completeObj);
+    if (!prefile.open(QIODevice::WriteOnly | QIODevice::Text)) return;
+
+    QTextStream out(&prefile);
+
+    foreach (Node* node, nodes) {
+        // Control Points
+        foreach(Vector3d p, node->controlPoints())
+            out << QString("v %1 %2 %3\n").arg(p.x()).arg(p.y()).arg(p.z());
+    }
+
+    prefile.close();
+
     // Save nodes
     foreach(Node * node, nodes)
     {
@@ -997,130 +1236,42 @@ void SuperGraph::saveSkeleton(QString fileName, QString type){
 }
 
 
-void SuperGraph::saveMatchedGraph(QString fileName){
-
-    if(tg->nodes.size() < 1) return;
-
-
-    QFile file(fileName);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) return;
-    QFileInfo fileInfo(file.fileName());
-    QDir graphDir( fileInfo.absolutePath() );
-
-    QTextStream out(&file);
-    out << "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n<document>\n";
-
-    // Save nodes
-    foreach(Node * node, super_sg->nodes)
-    {
-        QString corrID = node->property["correspond"].toString();
-        Structure::Node *n = super_tg->getNode(corrID);
-
-        out << "<node>\n";
-
-        // Type and ID
-        out << QString("\t<id>%1</id>\n").arg(n->id);
-        out << QString("\t<type>%1</type>\n").arg(n->type());
-
-        if(n->property.contains("mesh_filename"))
-        {
-            QString meshesFolder = "meshes";
-
-            graphDir.mkdir( meshesFolder );
-
-            QString mesh_filename = n->property["mesh_filename"].toString();
-            QFileInfo meshFileInfo( mesh_filename );
-
-            QString relativeFileName = meshesFolder + "/" + meshFileInfo.baseName() + ".obj";
-
-            // Save mesh from memory
-            /*QSharedPointer<SurfaceMeshModel> mesh = n->property["mesh"].value< QSharedPointer<SurfaceMeshModel> >();
-            if(mesh_filename.size() && mesh)
-            {
-                if( sg->isOutParts )
-                    saveOBJ( mesh.data(), graphDir.path() + "/" + relativeFileName );
-            }*/
-
-            out << QString("\t<mesh>%1</mesh>\n\n").arg( relativeFileName ); // relative
-        }
-
-        // Control count
-        out << "\t<controls>\n";
-        std::vector<int> controlCount = n->controlCount();
-        foreach(int c, controlCount)
-            out << QString("\t\t<c>%1</c>\n").arg(c);
-        out << "\t</controls>\n\n";
-
-        // Control Points
-        foreach(Vector3d p, n->controlPoints())
-            out << QString("\t<point>%1 %2 %3</point>\n").arg(p.x()).arg(p.y()).arg(p.z());
-
-        // Weights
-        out << "\n\t<weights>";
-        foreach(Scalar w, n->controlWeights())
-            out << QString::number(w) + " ";
-        out << "</weights>\n";
-
-        out << "</node>\n\n";
-    }
-
-    // Save edges
-    foreach(Link * edge, super_sg->edges)
-    {
-        int edgeID = edge->property["correspond"].toInt();
-        Link *e = super_tg->getEdge(edgeID);
-
-        out << "<edge>\n";
-        out << QString("\t<id>%1</id>\n").arg(e->id);
-        out << QString("\t<type>%1</type>\n\n").arg(e->type);
-        out << QString("\t<n>%1</n>\n").arg(e->n1->id);
-        out << QString("\t<n>%1</n>\n").arg(e->n2->id);
-
-        for(int k = 0; k < 2; k++)
-        {
-            out << "\t<coord>\n";
-            foreach(Vector4d c, e->coord[k])
-                out << "\t\t<uv>" << c[0] << " " << c[1] << " " << c[2] << " " << c[3] << "</uv>\n";
-            out << "\t</coord>\n";
-        }
-
-        out << "</edge>\n\n";
-    }
-
-    // Save groups
-    foreach(QVector<QString> group, super_tg->groups){
-        out << "<group>";
-        foreach(QString nid, group){
-            out << QString("\n\t<n>%1</n>").arg(nid);
-        }
-        out << "\n</group>\n\n";
-    }
-
-    out << "\n</document>\n";
-    file.close();
-}
-
 void SuperGraph::ComputeSeedRegions(){
-    //不应该所有的都计算seedRegion
+    //只有缺少的重新加进来的node才计算seedRegion
     QVector<Node*> snodes = super_sg->nodes;
     QVector<QString> snodeIDs;
+    //计算每个node的任务状态
     for(int i = 0; i < snodes.size(); i++){
-        snodeIDs.push_back(snodes.at(i)->id);
-    }
-    foreach(QString nodeID, snodeIDs){
-        if(!nodeID.contains("_null")) continue;
-        SeedRegion * seedregion = new SeedRegion(super_sg, super_tg, nodeID);
-        seedregion->ComputeSeedRegion();
+        //Task types
+        QString type;
+
+        QString snID = snodes.at(i)->id;
+        assert(snodes[i]->property.contains("correspond"));
+        QString tnID = super_tg->getNode( snodes[i]->property["correspond"].toString() )->id;
+        if(snID.contains("_null")){
+            type = Task::GROW;
+            snodeIDs.push_back(snodes.at(i)->id);
+        }else if(tnID.contains("_null"))
+            type = Task::SHRINK;
+        else
+            type = Task::MORPH;
+
+        snodes[i]->property["TaskType"] = type;
+        snodes[i]->property["taskTypeReal"] = type;
+        if( snID.contains("_") && !snID.contains("_null") ) //ID后面带一个下划线的是要分离的 下划线后面是number
+        {
+            snodes[i]->property["taskTypeReal"] = Task::SPLIT;
+        }
+        if( tnID.contains("_") && !tnID.contains("_null") )
+        {
+            snodes[i]->property["taskTypeReal"] = Task::MERGE;
+        }
     }
 
-    QVector<Node*> tnodes = super_tg->nodes;
-    QVector<QString> tnodeIDs;
-    for(int i = 0; i < tnodes.size(); i++){
-        tnodeIDs.push_back(tnodes.at(i)->id);
-    }
-    foreach(QString nodeID, tnodeIDs){
+    foreach(QString nodeID, snodeIDs){
         if(!nodeID.contains("_null")) continue;
-        SeedRegion * seedregion = new SeedRegion(super_tg, super_sg, nodeID);
+
+        SeedRegion * seedregion = new SeedRegion(super_sg, super_tg, nodeID);
         seedregion->ComputeSeedRegion();
     }
 

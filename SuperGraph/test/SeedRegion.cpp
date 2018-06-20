@@ -11,6 +11,7 @@ SeedRegion::SeedRegion(Structure::Graph * activeGraph, Structure::Graph * target
 
     property["nodeID"].setValue(node_ID);
     nodeID = node_ID;
+
 }
 
 void SeedRegion::ComputeSeedRegion(){
@@ -24,14 +25,19 @@ void SeedRegion::ComputeSeedRegion(){
         QVector<Link*> tedges;
         // 在Curve中考虑所有的边
         QVector<Link*> edges = filteredFromTargetEdges();//active中 和target中的node相连的边  匹配的边的集合，并且是按照价排序过的
-        if(edges.empty()) return;
-        foreach(Link* edge, edges) tedges.push_back(target->getEdge( edge->property["correspond"].toInt() ));//target中的node相连的边
+        //  怎么会出现edge数目为 0的情况呢
+        assert(!edges.empty());
+        foreach(Link* edge, edges){
+            Structure::Link* t_edge = target->getEdge( edge->property["correspond"].toInt() );
+            assert(t_edge);
+            tedges.push_back(t_edge);//target中的node相连的边
+        }
 
         // Save the edges used
         property["edges"].setValue( active->getEdgeIDs(edges) );
 
-        if(edges.size() == 1 )
-            SeedCurveOneEdge(tedges.front());
+        if(tedges.size() == 1 )
+            SeedCurveOneEdge(tedges.front());//这里有bug，tedges传进去是空的
         else
             SeedCurveTwoEdges(tedges);
 
@@ -40,11 +46,12 @@ void SeedRegion::ComputeSeedRegion(){
 
         //在sheet中最多只考虑两个边
         QVector<Structure::Link*> active_edges = active->getEdges(n->id);
-
+        //猜测原因是sheet不能变形，只需要两个点就可以确定一个sheet
         QVector<Link*> edges = filterEdges(n, active_edges );//这里最多是是两个边（什么破函数……）
 
         property["edges"].setValue( active->getEdgeIDs(edges) );
-        if(edges.empty()) return;
+        assert(!edges.empty());
+
         if (edges.size() == 1){
             SeedSheetOneEdge( edges.front() );
         }else{
@@ -53,9 +60,13 @@ void SeedRegion::ComputeSeedRegion(){
 
     }
 
+
 }
 
 void SeedRegion::SeedCurveOneEdge(Structure::Link * tlink){
+    //Jerry's debug
+    assert(tlink != NULL);
+
     Node *tn = targetNode();
     Structure::Curve tcurve (*((Structure::Curve *)tn));
 
@@ -113,7 +124,7 @@ void SeedRegion::SeedCurveTwoEdges(QVector<Structure::Link*> tedges){
          Link *linkA = active->getEdge( tlinkA->property["correspond"].toInt() );//active上对应的边
          Link *linkB = active->getEdge( tlinkB->property["correspond"].toInt() );
 
-         if(!linkA || !linkB) return;
+         assert(linkA && linkB);
 
          Node *otherA = active->getNode( totherA->property["correspond"].toString() );//active上对应的node
          Node *otherB = active->getNode( totherB->property["correspond"].toString() );
@@ -268,7 +279,7 @@ QVector<Structure::Link*> SeedRegion::filterEdges( Structure::Node * n, QVector<
 
     return edges;
 }
-
+//算seed region的时候多的那个是target
 QVector<Structure::Link*> SeedRegion::filteredFromTargetEdges(){
     Node *tn = targetNode();
     QVector<Link*> all_tedges = target->getEdges(tn->id);//链接targetnode的所有边
@@ -281,21 +292,22 @@ QVector<Structure::Link*> SeedRegion::filteredFromTargetEdges(){
         Node * other = active->getNode( tother->property["correspond"].toString() );
 
         // Skip not grown others
-        if( all_tedges.size() > 1 && ungrownNode(other->id) )
-            continue;
+        // target在这里是一个集合，不需要grow
+        //if( all_tedges.size() > 1 && ungrownNode(other->id) )
+        //    continue;
 
-        tedges.push_back(edge);	//链接targetnode的所有边，除去active这边还没长大的node
+        tedges.push_back(edge);	//链接targetnode的所有边，除去active这边还没长大的 node
     }
 
     // Skip all but one edge of splitting nodes
-    foreach(Link * edge, tedges)
+    /*foreach(Link * edge, tedges)
     {
         Node * other = active->getNode( edge->otherNode( tn->id )->property["correspond"].toString() );
         if(other->property["taskTypeReal"].toInt() == SPLIT && !other->property["taskIsReady"].toBool()){
             if(tedges.size() > 1)
                 tedges.remove(tedges.indexOf(edge));
         }
-    }
+    }*/
 
     // Find corresponding edges 把target中对应的edge连起来
     foreach(Link * edge, tedges)
@@ -318,7 +330,7 @@ QVector<Structure::Link*> SeedRegion::filteredFromTargetEdges(){
             edge->property["correspond"] = slink->property["uid"].toInt();
         }
 
-        if(slink) edges.push_back( slink );
+        if(slink && slink->hasNode(nodeID)) edges.push_back( slink );
     }
 
     // Sort by valence of other
@@ -337,12 +349,20 @@ QVector<Structure::Link*> SeedRegion::filteredFromTargetEdges(){
         edges = sortedEdges;
     }
 
-    // Surrounded by un-grown nodes
+    // Surrounded by un-grown nodes 这样的node可能在target中没有对应的边
     if( edges.isEmpty() )
     {
         QVector<Structure::Link*> edgs = active->getEdges( nodeID );
         if(!edgs.isEmpty()) edges.push_back( edgs.front() );
     }
+
+    if(tedges.size() > 4){
+        int abc = 1;
+        int bcd;
+        bcd = abc - 1;
+    }
+
+    assert(!edges.empty());
 
     return edges;//active中 和target中的node相连的边  匹配的边的集合，并且是按照价排序过的
 }
@@ -382,5 +402,6 @@ bool SeedRegion::ungrownNode( QString nid )
     //Task* t = active->getNode(nid)->property["task"].value<Task*>();
     //return t->type == GROW && !t->isReady;
     //这里要获取其他的node需要进行的操作的的信息，需要进一步计算
-    return false;
+    return nid.contains("null") ;
+
 }

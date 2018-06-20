@@ -11,17 +11,24 @@
 class SuperGraph
 {
 public:
-    SuperGraph(GraphCorresponder * useCorresponder);
+    SuperGraph(GraphCorresponder * useCorresponder, int i);
     ~SuperGraph();
 
     /// Super graphs operations:
     void generateSuperGraphs();
+    //Jerry
+    void genSuperGraphsfromSource();
+    void genSuperGraphsfromTarget();
 
     void correspondSuperNodes();
     void correspondSuperEdges();
     void equalizeSuperNodeResolutions();
     void equalizeSuperNodeTypes();
     bool convertSheetToCurve(QString sheetID, QString curveID, Structure::Graph* sheetG, Structure::Graph* curveG);
+    //Jerry
+    void correspondEdgesfromSource();
+    void correspondEdgesfromTarget();
+
 
     /// Helper functions:
     QVector<QString> cloneGraphNode(Structure::Graph *g, QString nodeID, int N);
@@ -48,7 +55,6 @@ public:
     QVector<Structure::Link*> edgesNotContain(QVector<Structure::Link*> edges, QString property_name);
 
     //我的函数
-    void saveMatchedGraph(QString fileName);
     void saveSkeleton(QString fileName, QString type);
 
     ///Seed Region
@@ -72,6 +78,8 @@ public:
     Structure::Graph * super_tg;
     QMap<QString, QString> superNodeCorr;
     QMap<QString, QString> superEdgeCorr;
+
+    int Nth;
 
 
 };
