@@ -518,6 +518,8 @@ void SuperGraph::correspondSimilarType( Structure::Graph * source, Structure::Gr
         Structure::Node *tn1 = target->getNode(sn1->property["correspond"].toString()),
             *tn2 = target->getNode(sn2->property["correspond"].toString());
 
+        if(tn1 == NULL || tn2 == NULL) continue;
+
         // We are only looking for missing edges
         if(!(tn1->id.contains("_null") && tn2->id.contains("_null"))) continue;
 
@@ -739,10 +741,11 @@ void SuperGraph::connectFloatingRealNodes( Structure::Graph * source, Structure:
         QVector<Link*> alledges = source->getEdges(snode->id);
         QVector<Link*> sedges = edgesNotContain(alledges, "correspond");
 
-        // No edges are corresponded yet
+        // No edges are corresponded yet 对应的node中没有被匹配的边相互匹配一下
         if (sedges.size() == alledges.size())
         {
             Structure::Node * tnode = target->getNode( snode->property["correspond"].toString() );
+            if(tnode == NULL) continue;
             QVector<Structure::Link*> tedges = edgesNotContain( target->getEdges(tnode->id), "correspond" );
 
             int N = qMin(sedges.size(), tedges.size());
