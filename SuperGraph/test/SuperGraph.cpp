@@ -126,7 +126,7 @@ QVector<QString> SuperGraph::cloneGraphNode( Structure::Graph *g, QString nodeID
     return cloned_node_IDs;
 }
 
-void SuperGraph::correspondSuperNodes()
+void SuperGraph::correspondNodesfromSource()
 {
     // Add virtual corresponding nodes for missing nodes
     // 没有匹配的点先简要的拷贝到对方那边去，从source拷贝到target
@@ -141,6 +141,92 @@ void SuperGraph::correspondSuperNodes()
         super_tg->addNode(ctnode);
 
         superNodeCorr[snodeID] = ctnode->id;
+    }
+
+
+    // Copy growing groups from target
+    QStringList nonCorresSource;
+    foreach(QString tnodeID, gcoor->nonCorresSource()) nonCorresSource << tnodeID;
+    foreach(QVector<QString> tgroup, super_tg->groups)
+    {
+        // Add this groups
+        QVector<QString> sgroup;
+        //超图中的每一个组中的每一个节点，如果被没有匹配的List包含的话，就放到sgroup中去
+        foreach(QString tnodeID, tgroup) {
+            if(nonCorresSource.contains(tnodeID))
+                sgroup << (tnodeID + "_null");
+        }
+
+        if(!sgroup.size()) continue;
+        super_sg->addGroup(sgroup); //在target中是一个组的，如果没有被匹配，拷贝到source中也应该是一个组
+    }
+
+    // Build node correspondence for corresponded nodes
+    // 把gcoor里之前匹配的结果也加进来
+    QVector< PairQString > core_pairs;
+    foreach (PART_LANDMARK vec2vec, gcoor->correspondences)
+    {
+        QVector<QString> sNodes = vec2vec.first;
+        QVector<QString> tNodes = vec2vec.second;
+
+        int sN = sNodes.size();
+        int tN = tNodes.size();
+        Structure::Node * snode = super_sg->getNode(sNodes.front());
+        Structure::Node * tnode = super_tg->getNode(tNodes.front());
+
+        // 1-to-1 检查是否有多对一
+        if (sN == 1 && tN == 1){
+            superNodeCorr[snode->id] = tnode->id;
+        }
+
+        // N-to-1
+        if (sN > 1)	{
+            QVector<QString> ctnodeIDs = cloneGraphNode(super_tg, tnode->id, sN);
+            for (int i = 0; i < sN; i++) superNodeCorr[sNodes[i]] = ctnodeIDs[i];
+            super_tg->addGroup(ctnodeIDs);
+        }
+
+        // 1-to-N
+        if (tN > 1)	{
+            QVector<QString> csnodeIDs = cloneGraphNode(super_sg, snode->id, tN);
+            for (int i = 0; i < tN; i++) superNodeCorr[csnodeIDs[i]] = tNodes[i];
+            super_sg->addGroup(csnodeIDs);
+        }
+    }
+
+    // Store correspondences in the graphs
+    foreach(QString snode, superNodeCorr.keys())
+    {
+        QString tnode = superNodeCorr[snode];
+
+        Structure::Node * sn = super_sg->getNode(snode);
+        Structure::Node * tn = super_tg->getNode(tnode);
+
+        if(!sn || !tn){
+            qDebug() << "ERROR: many to many cases are not handled";
+            continue;
+        }
+
+        sn->property["correspond"] = tnode;
+        tn->property["correspond"] = snode;
+    }
+}
+
+void SuperGraph::correspondNodesfromTarget()
+{
+    // Add virtual corresponding nodes for missing nodes
+    // 没有匹配的点先简要的拷贝到对方那边去，从Target拷贝到Source
+    // To grow:
+    foreach(QString tnodeID, gcoor->nonCorresTarget())
+    {
+        Structure::Node *tnode = super_tg->getNode(tnodeID);
+        Structure::Node *ctnode = tnode->clone();
+        ctnode->id = tnodeID + "_null" + "_grow_" + QString::number(Nth);
+
+        assert(!super_sg->getNode(ctnode->id));
+        super_sg->addNode(ctnode);
+
+        superNodeCorr[ctnode->id] =  tnodeID;
     }
 
 
@@ -409,75 +495,39 @@ void SuperGraph::correspondEdgesfromTarget()
 
 void SuperGraph::correspondEdgesfromSource()
 {
-    bool CASE_1 = true;
-    bool CASE_2 = true;
-    bool CASE_3 = true;
-    bool CASE_4 = true;
-    bool CASE_5 = true;
-    bool CASE_6 = true;
-    bool CASE_7 = true;
-
     bool dbg = false;
 
     if(dbg) debugSuperGraphs("00");
 
     /// Correspond trivial edges, i.e. both nodes exist on both graphs
-    if( CASE_1 )
-    {
-        correspondTrivialEdges ( super_tg, super_sg );
-    }
-
+    correspondTrivialEdges ( super_tg, super_sg );
     if(dbg) debugSuperGraphs("01");
 
     /// Correspond edges between two [extra] or two [missing] nodes
-    if( CASE_2 )
-    {
-        correspondSimilarType( super_tg, super_sg );
-    }
-
+    correspondSimilarType( super_tg, super_sg );
     if(dbg) debugSuperGraphs("02");
 
     /// Creating one edge for floating null nodes [has heuristic 启发式的]
     // 给null连接一条和target对应的价最高的边
-    if (CASE_3)
-    {
-        connectNullNodes( super_tg, super_sg );
-    }
-
+    connectNullNodes( super_tg, super_sg );
     if(dbg) debugSuperGraphs("03");
 
     /// Correspond edges with changed ends
-    if( CASE_4 )
-    {
-        correspondChangedEnds( super_sg, super_tg );
-    }
-
-    if(dbg) debugSuperGraphs("04");
+    //correspondChangedEnds( super_tg, super_sg );
+    //if(dbg) debugSuperGraphs("04");
 
     /// Do remaining edges of null nodes
     // 把null的所有的边都连上
-    if( CASE_5 )
-    {
-        correspondRemainingOfNull( super_tg, super_sg );
-    }
-
+    correspondRemainingOfNull( super_tg, super_sg );
     if(dbg) debugSuperGraphs("05");
 
     /// Link flying real nodes [same as case 4 but for cores]
-    if (CASE_6)
-    {
-        connectFloatingRealNodes(super_tg, super_sg);
-    }
-
+    connectFloatingRealNodes(super_tg, super_sg);
     if(dbg) debugSuperGraphs("06");
 
     /// Remove excess edges (edges of core nodes still uncorresponded)
-    if( CASE_7 )
-    {
-        removeRedundantEdges( super_tg );
-    }
-
-    if(dbg) debugSuperGraphs("07");
+    //removeRedundantEdges( super_tg );
+    //if(dbg) debugSuperGraphs("07");
 
     // Visualization: assign global unique ids
     int viz_uid = 0;
@@ -648,10 +698,6 @@ void SuperGraph::connectNullNodes( Structure::Graph * source, Structure::Graph *
 
 void SuperGraph::correspondChangedEnds( Structure::Graph * source, Structure::Graph * target )
 {
-    bool isRunning = true;
-    do{
-        isRunning = false;
-
         foreach(Structure::Node * snode, source->nodes)
         {
             Structure::Node * tnode = target->getNode( snode->property["correspond"].toString() );
@@ -683,7 +729,6 @@ void SuperGraph::correspondChangedEnds( Structure::Graph * source, Structure::Gr
                     correspondTwoEdges(slink, tlink, isFlip, source);
                 }
 
-                isRunning = true;
             }
             // Source has been duplicated ?
             else if(tedges.size() == 1 && sedges.size() > 1)
@@ -707,7 +752,7 @@ void SuperGraph::correspondChangedEnds( Structure::Graph * source, Structure::Gr
                 correspondTwoEdges(slink, tlink, isFlip, source);
             }
         }
-    } while (isRunning);
+
 }
 
 void SuperGraph::correspondRemainingOfNull( Structure::Graph * source, Structure::Graph * target )
@@ -776,40 +821,6 @@ void SuperGraph::removeRedundantEdges( Structure::Graph * source )
     }
 }
 
-void SuperGraph::generateSuperGraphs()
-{
-    // Two super graphs have one-to-one correspondence between nodes and edges
-    // Two corresponded edge don't have to link two corresponded nodes
-    super_sg = new Structure::Graph(*sg);
-    super_tg = new Structure::Graph(*tg);
-
-    super_sg->property["sourceName"] = gcoor->sgName();
-    super_sg->property["targetName"] = gcoor->tgName();
-
-    super_sg->property["sourceGraphCenter"].setValue( Vector3(sg->bbox().center()) );
-    super_sg->property["targetGraphCenter"].setValue( Vector3(tg->bbox().center()) );
-
-    /// NODES:
-    // Correspond nodes in super graphs
-    correspondSuperNodes();
-
-    // Equalize resolution for corresponded nodes
-    equalizeSuperNodeResolutions();
-
-    // Equalize type for corresponded nodes
-    equalizeSuperNodeTypes();
-
-    /// EDGES:
-    // Correspond edges in super graphs
-    //这里才开始做边的匹配
-    correspondSuperEdges();
-
-    // Assign edge attributes
-    postprocessSuperEdges();
-
-    active = super_sg;
-}
-
 void SuperGraph::genSuperGraphsfromSource(){
     // Two super graphs have one-to-one correspondence between nodes and edges
     // Two corresponded edge don't have to link two corresponded nodes
@@ -824,7 +835,7 @@ void SuperGraph::genSuperGraphsfromSource(){
 
     /// NODES:
     // Correspond nodes in super graphs
-    correspondSuperNodes();
+    correspondNodesfromSource();
 
     // Equalize resolution for corresponded nodes
     equalizeSuperNodeResolutions();
@@ -856,7 +867,7 @@ void SuperGraph::genSuperGraphsfromTarget(){
 
     /// NODES:
     // Correspond nodes in super graphs
-    correspondSuperNodes();
+    correspondNodesfromTarget();
 
     // Equalize resolution for corresponded nodes
     equalizeSuperNodeResolutions();

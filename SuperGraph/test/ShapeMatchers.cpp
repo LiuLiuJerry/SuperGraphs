@@ -30,15 +30,15 @@ void ShapeMatchers::MatchShapes(){
     if(inputGraphs.size() < 2) return;
 
     SuperGraph * supergraph = NULL;
-    Structure::Graph *t = new Structure::Graph(*inputGraphs[0]);
-    superGraphs.push_back(t);
+    //Structure::Graph *t = new Structure::Graph(*inputGraphs[0]);
+    //superGraphs.push_back(t);
     superTargets.push_back(NULL);
 
     int len = inputGraphs.size();
     //第一次匹配：
     //第一步先生成一个MAX的集合，把所有source的内容拷贝到target里，相当于字典，第二步再生成seed region
     //两步都需要配准，不过第一步的配准主要目的是找出MAX set，第二次配准才是为了对齐所有的node并生成seed region
-    Structure::Graph* target = superGraphs[0];
+    Structure::Graph* target = inputGraphs[0];
     Structure::Graph* source;
     for(int i = 1; i < len; i++){
         source = inputGraphs[i];
@@ -58,14 +58,16 @@ void ShapeMatchers::MatchShapes(){
 
         //target是之前一步的supr_tg，是superGraph里面new出来的，不归ShapeHolder删
         superTargets.push_back(supergraph->super_tg);
-        superGraphs.push_back(supergraph->super_sg);
+        //superGraphs.push_back(supergraph->super_sg);
 
         target = supergraph->super_tg;
 
     }
 
-    QVector<Structure::Graph* > middleGraphs;
-    middleGraphs.swap(superGraphs);
+    supergraph->saveSkeleton("middle_tg", "TARGET");
+
+    QVector<Structure::Graph* >& middleGraphs = inputGraphs;
+    //smiddleGraphs.swap(superGraphs);
 
     target = superTargets[len-1];
     superTargets.pop_back();
@@ -91,7 +93,7 @@ void ShapeMatchers::MatchShapes(){
     for(int i = 0; i < len; i++){
         source = middleGraphs[i];
         //清空target里的对应，防止上次匹配的结果影响下次的匹配
-        //resetGraph(target);
+        resetGraph(target);
 
         //其实这里没有必要全部重新匹配，可以进行优化
         Corresponders[i] = doMatch(source, target, Corresponders[i]);
@@ -105,7 +107,7 @@ void ShapeMatchers::MatchShapes(){
         supergraph->ComputeSeedRegions();
 
         QString tName = "super_sg_" + QString::number(i);
-        supergraph->saveSkeleton(tName, "TARGET");
+        supergraph->saveSkeleton(tName, "ACTIVE");
 
         superGraphs.push_back(supergraph->super_tg);
 

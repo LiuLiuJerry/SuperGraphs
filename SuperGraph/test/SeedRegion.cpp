@@ -67,24 +67,28 @@ void SeedRegion::SeedCurveOneEdge(Structure::Link * tlink){
     //Jerry's debug
     assert(tlink != NULL);
 
-    Node *tn = targetNode();
-    Structure::Curve tcurve (*((Structure::Curve *)tn));
+    Node *n = node(), *tn = targetNode();
+    Structure::Curve * curve = (Structure::Curve *)n;
+    Structure::Curve * tcurve = (Structure::Curve *)tn;
 
     // Get base
     Node * tbase = tlink->otherNode(tn->id);
     QString baseID = tbase->property["correspond"].toString();
-    Node* base = active->getNode(baseID);
+    Node* base = active->getNode(baseID);//准备和 null连接的node
 
     // Get coordinates on me and my base
     Vector4d coordBase = tlink->getCoord(tbase->id).front();
     Vector4d coordSelf = tlink->getCoord(tn->id).front();//为什么就是第一个了呢……
 
     /// Place curve:
-    int cpIDX = tcurve.controlPointIndexFromCoord( coordSelf );
+    int cpIDX = curve->controlPointIndexFromCoord( coordSelf );
 
     // Make origin the position on me in which I will grow from
     //把target的curve转移到base的位置
-    tcurve.moveBy( -tcurve.controlPoints()[cpIDX] + base->position( coordBase ) );
+    curve->foldTo(coordSelf, true);//直接折叠到自己的位置的那个点上
+    Vector3 cntP = -curve->controlPoints()[cpIDX];
+    Vector3 bP = base->position( coordBase );
+    curve->moveBy(cntP + bP /*-tcurve.controlPoints()[cpIDX] + base->position( coordBase )*/ );
 
 }
 

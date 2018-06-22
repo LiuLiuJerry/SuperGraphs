@@ -15,17 +15,17 @@ public:
     ~SuperGraph();
 
     /// Super graphs operations:
-    void generateSuperGraphs();
     //Jerry
     void genSuperGraphsfromSource();
     void genSuperGraphsfromTarget();
 
-    void correspondSuperNodes();
     void correspondSuperEdges();
     void equalizeSuperNodeResolutions();
     void equalizeSuperNodeTypes();
     bool convertSheetToCurve(QString sheetID, QString curveID, Structure::Graph* sheetG, Structure::Graph* curveG);
     //Jerry
+    void correspondNodesfromSource();
+    void correspondNodesfromTarget();
     void correspondEdgesfromSource();
     void correspondEdgesfromTarget();
 
