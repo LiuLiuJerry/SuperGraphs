@@ -1353,6 +1353,7 @@ void GraphCorresponder::computeCorrespondencesNew(){
 
     // Part to Part correspondence
     computePartToPartCorrNew();
+    computePartToPartCorrOther();
 
     // Point to Point correspondence
     correspondAllNodes();
@@ -1530,4 +1531,66 @@ void GraphCorresponder::computePartToPartCorrNew(){
         corrScores[landmark] = fake_score;
     }
 
+}
+
+void GraphCorresponder::computePartToPartCorrOther(){
+    QVector<Structure::Node*> sNullNodes, tNullNodes;
+    foreach(Structure::Node* snode, sg->nodes){
+        if(snode->property.contains("correspond")) continue;
+        sNullNodes.push_back(snode);
+    }
+    foreach(Structure::Node* tnode, tg->nodes){
+        if(tnode->property.contains("correspond")) continue;
+        tNullNodes.push_back(tnode);
+    }
+
+    foreach(Structure::Node* snode, sNullNodes){
+        foreach(Structure::Node* tnode, tNullNodes){
+            if(tnode->property.contains("correspond"))continue;
+
+            //把所有的邻居node都放到set里面
+            QVector<Structure::Link*> sedges = sg->getEdges(snode->id);
+            QSet<QString> sNeighborNodes;
+
+            foreach(Structure::Link* edge, sedges){
+                Structure::Node* sother = edge->otherNode(snode->id);
+                sNeighborNodes.insert(sother->id);
+            }
+
+            QVector<Structure::Link*> tedges = tg->getEdges(tnode->id);
+            QSet<QString> tNeighborNodes;
+
+            foreach(Structure::Link* edge, tedges){
+                Structure::Node* tother = edge->otherNode(tnode->id);
+                tNeighborNodes.insert(tother->id);
+            }
+
+            bool isCorr = true;
+            //看两边的邻居是否一模一样
+            foreach(QString sotherID, sNeighborNodes){
+                Structure::Node* sother = sg->getNode(sotherID);
+                if(sother->property.contains("correspond")){
+                    QString totherID = sother->property["correspond"].toString();
+
+                    if(!tNeighborNodes.contains(totherID)){
+                        isCorr = false;
+                        break;
+                    }
+                }else{
+                    isCorr = false;
+                    break;
+                }
+            }
+
+            if(isCorr){
+                // Save results
+                QVector<QString> sVector, tVector;
+                sVector.push_back(snode->id);
+                tVector.push_back(tnode->id);
+                PART_LANDMARK vector2vector = std::make_pair(sVector, tVector);
+                this->insertCorrespondence( vector2vector );
+                //this->corrScores[vector2vector] =
+            }
+        }
+    }
 }

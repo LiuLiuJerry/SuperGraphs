@@ -105,6 +105,7 @@ public:
     //Jerry
     void computeCorrespondencesNew();
     void computePartToPartCorrNew();
+    void computePartToPartCorrOther();
 
 
 public slots:
