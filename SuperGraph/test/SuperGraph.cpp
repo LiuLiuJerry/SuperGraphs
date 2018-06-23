@@ -57,7 +57,7 @@ QVector<QString> SuperGraph::cloneGraphNode( Structure::Graph *g, QString nodeID
     for (int i = 0; i < N; i++)
     {
         Structure::Node * n = node->clone();
-        n->id = nodeID + "_" + QString::number(i) + "_split_"+QString::number(Nth);
+        n->id = nodeID + "_" + QString::number(i) + "_splitfrom_" + QString::number(Nth);
 
         g->addNode(n);
 
@@ -135,7 +135,7 @@ void SuperGraph::correspondNodesfromSource()
     {
         Structure::Node *snode = super_sg->getNode(snodeID);
         Structure::Node *ctnode = snode->clone();
-        ctnode->id = snodeID + "_null" + "_grow_" + QString::number(Nth);
+        ctnode->id = snodeID + "_null" + "_growfrom" + QString::number(Nth);
 
         assert(!super_tg->getNode(ctnode->id));
         super_tg->addNode(ctnode);
@@ -221,7 +221,7 @@ void SuperGraph::correspondNodesfromTarget()
     {
         Structure::Node *tnode = super_tg->getNode(tnodeID);
         Structure::Node *ctnode = tnode->clone();
-        ctnode->id = tnodeID + "_null" + "_grow_" + QString::number(Nth);
+        ctnode->id = tnodeID + "_null" ;
 
         assert(!super_sg->getNode(ctnode->id));
         super_sg->addNode(ctnode);

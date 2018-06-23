@@ -97,7 +97,7 @@ void ShapeMatchers::MatchShapes(){
 
         //其实这里没有必要全部重新匹配，可以进行优化
         Corresponders[i] = doMatch(source, target, Corresponders[i]);
-        Corresponders[i]->saveCorrespondences("correspondence_" + QString::number(i) + ".xml");
+        Corresponders[i]->saveCorrespondences("correspondence_2nd_" + QString::number(i) + ".xml");
 
         if(supergraph) delete supergraph;
         supergraph = new SuperGraph(Corresponders[i], i);

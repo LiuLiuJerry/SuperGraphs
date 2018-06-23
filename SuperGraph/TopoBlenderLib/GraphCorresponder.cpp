@@ -1425,8 +1425,14 @@ void GraphCorresponder::computePartToPartCorrNew(){
             // ri is close to c 如果有多个的距离有小于一个阈值，就把它们都放到r_many
             if (disMatrix[ri][c] <= upperBound)
             {
-                r_scores.push_back(disMatrix[ri][c]);
-                r_many.push_back(ri);
+                QString rID = sg->nodes[r]->id;
+                foreach(QVector<QString> group, sg->groupsOf(rID)){
+                    if(group.contains(sg->nodes[ri]->id)){
+                        r_scores.push_back(disMatrix[ri][c]);
+                        r_many.push_back(ri);
+                    }
+                }
+
             }
         }
 
@@ -1441,8 +1447,16 @@ void GraphCorresponder::computePartToPartCorrNew(){
             // ci is close to r
             if (disMatrix[r][ci] < upperBound)
             {
-                c_scores.push_back(disMatrix[r][ci]);
-                c_many.push_back(ci);
+                QString cID = tg->nodes[c]->id;
+                foreach(QVector<QString> group, tg->groupsOf(cID)){
+                    if(group.contains(tg->nodes[ci]->id)){
+                        c_scores.push_back(disMatrix[r][ci]);
+                        c_many.push_back(ci);
+
+                    }
+                }
+
+
             }
         }
 

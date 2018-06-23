@@ -406,6 +406,6 @@ bool SeedRegion::ungrownNode( QString nid )
     //Task* t = active->getNode(nid)->property["task"].value<Task*>();
     //return t->type == GROW && !t->isReady;
     //这里要获取其他的node需要进行的操作的的信息，需要进一步计算
-    return nid.contains("null") ;
+    return nid.contains("_null") ;
 
 }
