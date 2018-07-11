@@ -1410,18 +1410,39 @@ void GraphCorresponder::computePartToPartCorrTarget(){
         foreach(int ci, nonCorresT)
             disMatrix[ri][ci] = INVALID_VALUE;
 
-    //QVector<QVector<QString>> corrs(tN, QVector<QString>(sN));
-
+    //第一次先给每个source中的node都分配一个corre
+    //每个node都应该有至少一个匹配，每个node匹配的内容应该不重叠
+    //优先级：1. 距离最近且没有被匹配的node
+    //       2. 距离不是最近但是没有被匹配的node
+    //       3. 其他距离最近的node
+    QMap<int, QVector<int>> mp;
+    std::vector< std::vector<float> > tmpMatrix(sN, std::vector<float>(tN));
+    for(int i = 0; i < sN; i++){
+        tmpMatrix[i].assign(disMatrix[i].begin(), disMatrix[i].end());
+    }
     int r, c;
     float minValue;
+    while(minElementInMatrix(tmpMatrix, r, c, minValue)){
+        // Remove r and c in the disMatrix
+        // 匹配过的Node不再考虑
+        for (int i = 0; i < sN; i++) // Column c
+            tmpMatrix[i][c] = INVALID_VALUE;
+        for (int j = 0; j < tN; j++) // Row r
+            tmpMatrix[r][j] = INVALID_VALUE;
+        for (int j = 0; j < tN; j++) // Row r
+            disMatrix[r][j] = INVALID_VALUE;
+
+        // Save results
+        QVector<int> singleT;
+        singleT.push_back(c);
+        mp[r] = singleT;
+    }
+
     while (minElementInMatrix(disMatrix, r, c, minValue)) //每次把距离最小的两个Node匹配起来
     {
         if (minValue > scoreThreshold) break;
 
-        // Results
-        QVector<QString> sVector, tVector;
-        sVector.push_back(sg->nodes[r]->id);
-        tVector.push_back(tg->nodes[c]->id);
+        mp[r].push_back(c);
         std::vector<float> scores;
         scores.push_back(minValue);
 
@@ -1440,8 +1461,7 @@ void GraphCorresponder::computePartToPartCorrTarget(){
                 QString cID = tg->nodes[c]->id;
                 foreach(QVector<QString> group, tg->groupsOf(cID)){
                     if(group.contains(tg->nodes[ci]->id)){
-                        scores.push_back(disMatrix[r][ci]);
-                        tVector.push_back(tg->nodes[ci]->id);
+                        mp[r].push_back(c);
 
                         // Remove r and c in the disMatrix
                         // 匹配过的Node不再考虑, 一个source node可以和多个target匹配
@@ -1460,23 +1480,31 @@ void GraphCorresponder::computePartToPartCorrTarget(){
         for (int j = 0; j < tN; j++) // Row r
             disMatrix[r][j] = INVALID_VALUE;
 
-        // Save results
-        PART_LANDMARK vector2vector = std::make_pair(sVector, tVector);
-        this->insertCorrespondence( vector2vector );
-        this->corrScores[vector2vector] = scores;
-
     }
     // 应该每个source 的node都匹配到了才对
     for(int i = 0; i < sN; i++){
         bool corred = true;
         for(int j = 0; j < tN; j++){
             if(disMatrix[i][j] != INVALID_VALUE){
-                corred = false;
-                break;
+                assert(corred);
             }
         }
-        assert(corred);
-        if(!corred)break;
+    }
+    QMap<int, QVector<int>>::iterator iter = mp.begin();
+    while(iter!=mp.end()){
+        QVector<QString> sVector, tVector;
+        std::vector<float> scores;
+        sVector.push_back(sg->nodes[iter.key()]->id);
+        foreach(int i, iter.value()){
+            tVector.push_back(tg->nodes[i]->id);
+            scores.push_back(disMatrix[iter.key()][i]);
+        }
+
+        // Save results
+        PART_LANDMARK vector2vector = std::make_pair(sVector, tVector);
+        this->insertCorrespondence( vector2vector );
+        this->corrScores[vector2vector] = scores;
+        iter++;
     }
 
     // Add the part landmarks as correspondences too

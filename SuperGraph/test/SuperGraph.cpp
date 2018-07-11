@@ -567,6 +567,11 @@ void SuperGraph::connectNullNodes( Structure::Graph * source, Structure::Graph *
                 foreach(QString element, group){
                     Node * sn = source->getNode(element);
                     Node * tn = target->getNode(sn->property["correspond"].toString());
+                    if(force){
+                        assert(tn);
+                    }else{
+                        if(tn == NULL) continue;
+                    }
                     if(element == bestID) continue;
                     Link * tlink = target->getEdge(tnode->id, tn->id);
                     if( tlink )
