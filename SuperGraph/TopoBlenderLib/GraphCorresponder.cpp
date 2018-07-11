@@ -196,14 +196,14 @@ QVector< QVector<double> > GraphCorresponder::computeLandmarkFeatures( Structure
     //pointLandMark意思是某个编号对应的node对应的边界点
     //POINT_ID 第一个是nodeID， 第二个是这个node中的控制点的序号
 	foreach (POINT_ID landmark, pointLandmarks)
-	{
+    {   //每个点作为起始点，算一遍到每个node的距离贡献
 		Vector3 startpoint = g->nodes[landmark.first]->controlPoint(landmark.second);
 
 		GraphDistance gd(g);
 		gd.computeDistances(startpoint, DIST_RESOLUTION);
 
 		for (int nID = 0; nID < (int)g->nodes.size(); nID++)
-        {   //每个node的中心到沿着control point 到某一个控制点【startpoint】之间的距离
+        {   //每个node的中心到沿着control point 到某一个控制点【startpoint】之间的迪杰斯特拉距离距离
 			double dis = gd.distance(g->nodes[nID]->center());
 
 			result_features[nID].push_back(dis);
@@ -1342,7 +1342,7 @@ void GraphCorresponder::computeCorrespondences()
 }
 
 //自己随便改一改匹配算法……
-void GraphCorresponder::computeCorrespondencesNew(){
+void GraphCorresponder::computeCorrespondencesNew(bool fromTarget){
     corrScores.clear();
 
     // Prepare
@@ -1352,7 +1352,11 @@ void GraphCorresponder::computeCorrespondencesNew(){
     computeFinalDistanceMatrix();
 
     // Part to Part correspondence
-    computePartToPartCorrNew();
+    if(fromTarget){
+        computePartToPartCorrTarget();
+    }else{
+        computePartToPartCorrNew();
+    }
     computePartToPartCorrOther();
 
     // Point to Point correspondence
@@ -1381,6 +1385,109 @@ void GraphCorresponder::computeCorrespondencesNew(){
             tIsCorresponded[tid] = true;
         }
     }
+}
+//在第二次匹配中应该不再改变target,也不应该出现1个target对应多个source的情况
+//第二次应该每一个source都给匹配至少一个node
+void GraphCorresponder::computePartToPartCorrTarget(){
+    // Clear
+    correspondences.clear();
+    corrScores.clear();
+
+    // The final disM
+    std::vector< std::vector<float> > disMatrix = disM;
+
+    // Parameters
+    int sN = sg->nodes.size();
+    int tN = tg->nodes.size();
+    float tolerance = 0.04f;
+
+    // Force un-corresponded  已经确定不会被匹配的node
+    foreach(int ri, nonCorresS)
+        for (int ci = 0; ci < tN; ci++)
+            disMatrix[ri][ci] = INVALID_VALUE;
+
+    for (int ri = 0; ri < sN; ri++)
+        foreach(int ci, nonCorresT)
+            disMatrix[ri][ci] = INVALID_VALUE;
+
+    //QVector<QVector<QString>> corrs(tN, QVector<QString>(sN));
+
+    int r, c;
+    float minValue;
+    while (minElementInMatrix(disMatrix, r, c, minValue)) //每次把距离最小的两个Node匹配起来
+    {
+        if (minValue > scoreThreshold) break;
+
+        // Results
+        QVector<QString> sVector, tVector;
+        sVector.push_back(sg->nodes[r]->id);
+        tVector.push_back(tg->nodes[c]->id);
+        std::vector<float> scores;
+        scores.push_back(minValue);
+
+        // source:r <-> target:c
+        float upperBound = disMatrix[r][c] + tolerance;
+
+        // Search for "many" in source
+        for (int ci = 0; ci < tN; ci++)
+        {
+            if (ci == c || disMatrix[r][ci] == INVALID_VALUE)
+                continue;
+
+            // ri is close to c 如果有多个的距离有小于一个阈值，就把它们都放到r_many
+            if (disMatrix[r][ci] <= upperBound)
+            {
+                QString cID = tg->nodes[c]->id;
+                foreach(QVector<QString> group, tg->groupsOf(cID)){
+                    if(group.contains(tg->nodes[ci]->id)){
+                        scores.push_back(disMatrix[r][ci]);
+                        tVector.push_back(tg->nodes[ci]->id);
+
+                        // Remove r and c in the disMatrix
+                        // 匹配过的Node不再考虑, 一个source node可以和多个target匹配
+                        for (int i = 0; i < sN; i++)
+                            disMatrix[i][ci] = INVALID_VALUE;
+                    }
+                }
+
+            }
+        }
+
+        // Remove r and c in the disMatrix
+        // 匹配过的Node不再考虑
+        for (int i = 0; i < sN; i++) // Column c
+            disMatrix[i][c] = INVALID_VALUE;
+        for (int j = 0; j < tN; j++) // Row r
+            disMatrix[r][j] = INVALID_VALUE;
+
+        // Save results
+        PART_LANDMARK vector2vector = std::make_pair(sVector, tVector);
+        this->insertCorrespondence( vector2vector );
+        this->corrScores[vector2vector] = scores;
+
+    }
+    // 应该每个source 的node都匹配到了才对
+    for(int i = 0; i < sN; i++){
+        bool corred = true;
+        for(int j = 0; j < tN; j++){
+            if(disMatrix[i][j] != INVALID_VALUE){
+                corred = false;
+                break;
+            }
+        }
+        assert(corred);
+        if(!corred)break;
+    }
+
+    // Add the part landmarks as correspondences too
+    foreach(PART_LANDMARK landmark, landmarks)
+    {
+        insertCorrespondence( landmark );
+        int n = qMax(landmark.first.size(),landmark.second.size());
+        std::vector<float> fake_score(n, -1);
+        corrScores[landmark] = fake_score;
+    }
+
 }
 
 void GraphCorresponder::computePartToPartCorrNew(){
@@ -1468,6 +1575,7 @@ void GraphCorresponder::computePartToPartCorrNew(){
         scores.push_back(minValue);
 
         //尽量保持一对一，然后才是一对多和多对一
+        //和r和c匹配的数据离，如果有能相互匹配的，就把他们也踢出去
         if(c_many.size() > 1 && r_many.size() > 1){
             for(int i = 1; i < r_many.size(); i++){
                 for(int j = 1; j < c_many.size(); j++){

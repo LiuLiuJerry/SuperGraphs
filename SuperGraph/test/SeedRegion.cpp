@@ -25,7 +25,7 @@ void SeedRegion::ComputeSeedRegion(){
         QVector<Link*> tedges;
         // 在Curve中考虑所有的边
         QVector<Link*> edges = filteredFromTargetEdges();//active中 和target中的node相连的边  匹配的边的集合，并且是按照价排序过的
-        //  怎么会出现edge数目为 0的情况呢
+        // 怎么会出现edge数目为 0的情况呢
         assert(!edges.empty());
         foreach(Link* edge, edges){
             Structure::Link* t_edge = target->getEdge( edge->property["correspond"].toInt() );
@@ -234,13 +234,13 @@ void SeedRegion::SeedSheetTwoEdges( Structure::Link * linkA, Structure::Link * l
 
 QVector<Structure::Link*> SeedRegion::filterEdges( Structure::Node * n, QVector<Structure::Link*> allEdges )
 {
-    // Check edge's real ownership //保险起见检查一遍
+    // Check edge's real ownership //保险起见检查一遍，看是不是都跟target匹配
     Node * tn = target->getNode(n->property["correspond"].toString());
-    if( tn )
+    if( false/*tn*/ )
     {
         QVector<Link*> keepEdges;
         foreach(Link * sl, allEdges)
-        {
+        {   // 还是要从target匹配过来
             Link * tl = target->getEdge( sl->property["correspond"].toInt() );
 
             // Skip target edges that are not related to current node
@@ -252,15 +252,15 @@ QVector<Structure::Link*> SeedRegion::filterEdges( Structure::Node * n, QVector<
         allEdges = keepEdges;
     }
 
-    QVector<Structure::Link*> edges;
-    //找到所有和他相连的边
-    for(int i = 0; i < (int)allEdges.size(); i++){
+    QVector<Structure::Link*> edges = allEdges;
+    //找到所有和他相连的边，删除没长大的边
+    /*for(int i = 0; i < (int)allEdges.size(); i++){
         Structure::Node * otherI = allEdges[i]->otherNode(n->id);
 
         if( (!otherI) || ungrownNode(otherI->id) ) continue;
 
         if(otherI) edges.push_back(allEdges[i]);
-    }
+    }*/
 
     // Bin edges by their coordinates into 4 locations (2 for curves)
     QMap< int, QVector<Structure::Link*> > bin;

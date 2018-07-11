@@ -103,8 +103,9 @@ public:
 	QSet<int> nonCorresT;
 
     //Jerry
-    void computeCorrespondencesNew();
+    void computeCorrespondencesNew(bool fromTarget);
     void computePartToPartCorrNew();
+    void computePartToPartCorrTarget();
     void computePartToPartCorrOther();
 
 

@@ -11,6 +11,7 @@
 class SuperGraph
 {
 public:
+    enum SaveType{ ACTIVE, TARGET, CORRESPOND };
     SuperGraph(GraphCorresponder * useCorresponder, int i);
     ~SuperGraph();
 
@@ -41,9 +42,9 @@ public:
     // Edge correspondence cases
     void correspondTrivialEdges( Structure::Graph * source, Structure::Graph * target );
     void correspondSimilarType( Structure::Graph * source, Structure::Graph * target );
-    void connectNullNodes( Structure::Graph * source, Structure::Graph * target );
-    void correspondChangedEnds( Structure::Graph * source, Structure::Graph * target );
-    void correspondRemainingOfNull( Structure::Graph * source, Structure::Graph * target );
+    void connectNullNodes( Structure::Graph * source, Structure::Graph * target, bool force);
+    void correspondChangedEnds( Structure::Graph * source, Structure::Graph * target, bool force );
+    void correspondRemainingOfNull( Structure::Graph * source, Structure::Graph * target, bool force);
     void connectFloatingRealNodes(Structure::Graph * source, Structure::Graph * target);
     void removeRedundantEdges( Structure::Graph * source );
 
@@ -55,7 +56,7 @@ public:
     QVector<Structure::Link*> edgesNotContain(QVector<Structure::Link*> edges, QString property_name);
 
     //我的函数
-    void saveSkeleton(QString fileName, QString type);
+    void saveSkeleton(QString fileName, SaveType type);
 
     ///Seed Region
     void ComputeSeedRegions();

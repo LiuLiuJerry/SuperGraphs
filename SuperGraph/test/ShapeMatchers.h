@@ -14,7 +14,7 @@ public:
     ~ShapeMatchers();
     void MatchShapes();
     void resetGraph(Structure::Graph* graph);
-    GraphCorresponder* doMatch(Structure::Graph* sourceGraph, Structure::Graph* targetGraph, GraphCorresponder *gcorr);
+    GraphCorresponder* doMatch(Structure::Graph* sourceGraph, Structure::Graph* targetGraph, GraphCorresponder *gcorr, bool fromTarget);
 
 public:
     ShapeHolder *shapeholder;

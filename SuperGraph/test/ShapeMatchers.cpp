@@ -46,7 +46,7 @@ void ShapeMatchers::MatchShapes(){
         resetGraph(target);
 
         //把第一个shape当作模板，全部和它进行匹配
-        Corresponders[i] = doMatch(source, target, Corresponders[i]);
+        Corresponders[i] = doMatch(source, target, Corresponders[i], false);
         Corresponders[i]->saveCorrespondences("correspondence_" + QString::number(i) + ".xml");
 
         if(supergraph) delete supergraph;
@@ -54,22 +54,20 @@ void ShapeMatchers::MatchShapes(){
         supergraph->genSuperGraphsfromSource();
 
         QString tName = "middle_sg_" + QString::number(i);
-        supergraph->saveSkeleton(tName, "ACTIVE");
+        //supergraph->saveSkeleton(tName, SuperGraph::ACTIVE);
 
         //target是之前一步的supr_tg，是superGraph里面new出来的，不归ShapeHolder删
         superTargets.push_back(supergraph->super_tg);
-        //superGraphs.push_back(supergraph->super_sg);
 
         target = supergraph->super_tg;
 
     }
 
-    supergraph->saveSkeleton("middle_tg", "TARGET");
+    //supergraph->saveSkeleton("middle_tg", SuperGraph::TARGET);
 
     QVector<Structure::Graph* >& middleGraphs = inputGraphs;
-    //smiddleGraphs.swap(superGraphs);
 
-    target = superTargets[len-1];
+    target = superTargets.back();
     superTargets.pop_back();
     resetGraph(target);
 
@@ -94,25 +92,26 @@ void ShapeMatchers::MatchShapes(){
         source = middleGraphs[i];
         //清空target里的对应，防止上次匹配的结果影响下次的匹配
         resetGraph(target);
+        resetGraph(source);
 
         //其实这里没有必要全部重新匹配，可以进行优化
-        Corresponders[i] = doMatch(source, target, Corresponders[i]);
+        Corresponders[i] = doMatch(source, target, Corresponders[i], true);
         Corresponders[i]->saveCorrespondences("correspondence_2nd_" + QString::number(i) + ".xml");
 
         if(supergraph) delete supergraph;
         supergraph = new SuperGraph(Corresponders[i], i);
-        //这次只需要给便source，不能改变target
+        //这次只需要改变source，不能改变target
         supergraph->genSuperGraphsfromTarget();
 
         supergraph->ComputeSeedRegions();
 
         QString tName = "super_sg_" + QString::number(i);
-        supergraph->saveSkeleton(tName, "ACTIVE");
+        supergraph->saveSkeleton(tName, SuperGraph::CORRESPOND);
 
         superGraphs.push_back(supergraph->super_tg);
 
     }
-
+    supergraph->saveSkeleton("super_tg", SuperGraph::TARGET);
 
     foreach(Structure::Graph *mg, middleGraphs){
         if(mg) delete mg;
@@ -121,7 +120,7 @@ void ShapeMatchers::MatchShapes(){
 
 }
 
-GraphCorresponder* ShapeMatchers::doMatch(Structure::Graph* sourceGraph, Structure::Graph* targetGraph, GraphCorresponder *gcorr){
+GraphCorresponder* ShapeMatchers::doMatch(Structure::Graph* sourceGraph, Structure::Graph* targetGraph, GraphCorresponder *gcorr, bool fromTarget){
     //相同的一对模型已经匹配过了
     if( gcorr )
     {
@@ -139,11 +138,12 @@ GraphCorresponder* ShapeMatchers::doMatch(Structure::Graph* sourceGraph, Structu
 
     gcorr->clear();
     //怎么感觉这里只匹配node不匹配边呢
-    gcorr->computeCorrespondencesNew();
+    gcorr->computeCorrespondencesNew(fromTarget);
 
     return gcorr;
 
 }
+
 
 void ShapeMatchers::resetGraph(Structure::Graph* graph){
     foreach(Structure::Node* node, graph->nodes){
