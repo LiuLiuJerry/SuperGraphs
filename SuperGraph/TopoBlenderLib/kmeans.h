@@ -314,7 +314,7 @@ namespace kmeansFast
 		  Dist.col(kk) = ( X.rowwise() - Mu.row(kk) ).square().rowwise().sum();
 		}    
 	  } else {
-		Dist = -2*( X.matrix() * Mu.transpose().matrix() );
+		Dist = -2*(Mat(X.matrix() * Mu.transpose().matrix() ));
 		Dist.rowwise() += Mu.square().rowwise().sum().transpose().row(0);
 	  }
 	}

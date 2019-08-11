@@ -1747,8 +1747,11 @@ void Graph::transform( QMatrix4x4 mat )
 		if(isSelective && !node->selections.size()) continue;
 		
 		Array1D_Vector3 controlPoints = node->controlPoints();
-		for(int i = 0; i < (int)controlPoints.size(); i++)
-            controlPoints[i] = Vector3d(mat * QVector3(controlPoints[i]));
+		for (int i = 0; i < (int)controlPoints.size(); i++) {
+			QVector3 mc = QVector3(mat * QVector3(controlPoints[i]));
+			controlPoints[i] = Vector3d(mc.x(), mc.y(), mc.z());
+
+		}
 		node->setControlPoints(controlPoints);
 		
 		// Update needed for Sheets
@@ -1759,7 +1762,10 @@ void Graph::transform( QMatrix4x4 mat )
 		if(!node->property.contains("mesh")) continue;
 		SurfaceMesh::Model* model = getMesh( node->id );
 		Vector3VertexProperty points = model->vertex_property<Vector3d>("v:point");
-        foreach(Vertex v, model->vertices()) points[v] = Vector3d(QVector3(points[v]) * mat);
+		foreach(Vertex v, model->vertices()) {
+			QVector3 pm = QVector3(points[v]) * mat;
+			points[v] = Vector3d(pm.x(), pm.y(), pm.z());
+		}
 	}
 }
 

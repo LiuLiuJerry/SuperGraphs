@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Form Files">
       <UniqueIdentifier>{99349809-55BA-4b9d-BF79-8FDBB0286EB3}</UniqueIdentifier>
@@ -83,9 +83,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="StructureSheet.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="SynthesisManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Synthesizer.cpp">
@@ -177,9 +174,6 @@
     <ClInclude Include="StructureSheet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <QtMoc Include="SynthesisManager.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
     <ClInclude Include="Synthesizer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -219,8 +213,6 @@
     
     
     
-    
-    
     <CustomBuild Include="debug\moc_predefs.h.cbt">
       <Filter>Generated Files</Filter>
     </CustomBuild>
@@ -229,9 +221,15 @@
     </CustomBuild>
     
     
-    
-    
-    
+    <ClInclude Include="ui_GraphExplorer.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ui_GraphModifyWidget.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ui_SchedulerWidget.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <QtUic Include="GraphExplorer.ui">

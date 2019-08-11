@@ -327,9 +327,10 @@ public:
 		glBegin(GL_LINES);
 		for(int i = 0; i < c; i++)
 		{
-                        Eigen::Vector3d center = planes[i].first;
+            Eigen::Vector3d center = planes[i].first;
 			glv(center);
-                        glv(Vector3(center + ((Eigen::Vector3d)n[i] * 0.2 * scale)));
+			Eigen::Vector3d vd = n[i];
+            glv(Vector3(center + vd * double(0.2) * scale));
 		}
 		glEnd();
 
